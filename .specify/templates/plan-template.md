@@ -1,0 +1,1 @@
+$(cat .specify/templates/plan-template.md)

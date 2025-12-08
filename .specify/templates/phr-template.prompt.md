@@ -1,0 +1,1 @@
+$(cat .specify/templates/phr-template.prompt.md)

@@ -1,0 +1,1 @@
+$(cat .specify/templates/spec-template.md)

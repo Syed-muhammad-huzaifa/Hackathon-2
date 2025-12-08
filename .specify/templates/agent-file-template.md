@@ -1,0 +1,1 @@
+$(cat .specify/templates/agent-file-template.md)

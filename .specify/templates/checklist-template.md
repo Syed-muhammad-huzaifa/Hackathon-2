@@ -1,0 +1,1 @@
+$(cat .specify/templates/checklist-template.md)

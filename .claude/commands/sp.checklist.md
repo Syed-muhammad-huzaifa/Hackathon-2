@@ -1,0 +1,1 @@
+$(cat .claude/commands/sp.checklist.md)

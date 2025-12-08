@@ -1,0 +1,1 @@
+$(cat .specify/memory/constitution.md)

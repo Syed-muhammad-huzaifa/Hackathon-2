@@ -1,2 +1,1 @@
-# Hackathon-2
-Repository for Hackathon Project
+$(cat README.md)

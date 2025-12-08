@@ -1,0 +1,1 @@
+$(cat .specify/scripts/bash/create-phr.sh)

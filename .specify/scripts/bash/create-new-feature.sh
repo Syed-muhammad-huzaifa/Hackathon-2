@@ -1,0 +1,1 @@
+$(cat .specify/scripts/bash/create-new-feature.sh)
