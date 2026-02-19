@@ -1,177 +1,56 @@
-# UI Pages Specification  
-**Hackathon II – Phase II: Full-Stack Web Application**
+# Pages & Routing Specification - Phase II
 
-## 1. Purpose
+## 1. Overview
+The frontend utilizes the **Next.js 15 App Router**. Routing is organized to separate public marketing pages from protected application logic. All data-driven pages utilize **Server Components** by default for initial fetches, with **Client Components** nested for interactivity.
 
-This document defines the structure, layout, routing, and high-level content of every major page in the Todo web application for Phase II.
+## 2. Route Map
 
-All pages are built with **Next.js 16+ App Router** and follow these principles:
-- Clear separation between **public** (unauthenticated) and **protected** (authenticated) areas
-- Protected pages redirect unauthenticated users to `/signin`
-- Dashboard is the single central hub for all authenticated features (task CRUD + analytics)
-- Use **Server Components** for data fetching where possible
-- Use **Client Components** only for interactive elements
-- Responsive design (mobile-first with Tailwind CSS)
-- Dark mode support
-- Consistent navigation, error handling, and loading states
+| Path | Access | Component Type | Purpose |
+| :--- | :--- | :--- | :--- |
+| `/` | Public | Server | Landing page & Value proposition. |
+| `/login` | Public | Client | User authentication (Better Auth). |
+| `/signup` | Public | Client | New user registration. |
+| `/dashboard`| Private| Server/Client | The main Todo application interface. |
+| `/settings` | Private| Client | User profile and account management. |
 
-## 2. Routing & Protection Summary
+## 3. Page Definitions
 
-| Route          | Access        | Layout Used              | Redirect If Unauth | Main Content / Purpose                              |
-|----------------|---------------|--------------------------|---------------------|-----------------------------------------------------|
-| `/`            | Public        | Root Layout              | —                   | Landing / marketing page                            |
-| `/signup`      | Public        | Root Layout              | —                   | New user registration form                          |
-| `/signin`      | Public        | Root Layout              | —                   | Existing user login form                            |
-| `/dashboard`   | Protected     | Dashboard Layout         | Redirect to /signin | All task management + analytics (core app experience) |
+### 3.1 Landing Page (`/`)
+- **Content:** Hero section, feature highlights (Cloud sync, Security, Speed).
+- **Actions:** "Get Started" button (redirects to `/signup`) and "Login" link.
 
-**Protection Mechanism**  
-- Implemented via `middleware.ts` at project root  
-- Checks valid JWT/session (via Better Auth)  
-- If missing/invalid → redirect to `/signin?from=/dashboard`  
-- Preserves intended destination for post-login redirect
+### 3.2 Authentication Pages (`/login` & `/signup`)
+- **Logic:** Uses the `authClient` from Better Auth.
+- **Redirection:** If a user is already authenticated, they are automatically redirected to `/dashboard`.
+- **Validation:** Client-side form validation for email format and password strength.
 
-## 3. Page Details
+### 3.3 Dashboard Page (`/dashboard`)
+This is the core of the application.
+- **Layout:** Includes the `Navbar` and a centered `TaskContainer`.
+- **Data Fetching:** - Initial task load via a **Server Component** (using `fetch` with the JWT).
+    - Real-time updates handled via a **Client Component** (using `SWR` or `React Query`) for a "live" feel.
+- **Empty State:** High-visibility "Create your first task" button when the task count is zero.
 
-### 3.1 Landing Page – `/` (Root)
+## 4. Middleware & Protection
+- **Global Middleware:** `middleware.ts` intercepts requests to `/dashboard` and `/settings`.
+- **Session Check:** If no Better Auth session cookie is found, the user is redirected to `/login` with a `callbackUrl`.
 
-**Layout**: Root Layout (`app/layout.tsx`)  
-**Purpose**: Public entry point – attract users, explain value, drive to auth
+## 5. Data Flow: Page to API
 
-**Key Sections**:
-- Hero / Header
-  - Large headline: "Todo – Simple, Secure Task Management"
-  - Subheadline: "Organize your life privately with a modern web app"
-  - Two prominent CTAs: "Get Started (Sign Up)" → /signup, "Sign In" → /signin
-- Features / Benefits (3–4 cards or list)
-  - "Personal task lists – only you can see them"
-  - "Easy CRUD operations"
-  - "Clean dashboard with analytics"
-  - "Built with modern tech (Next.js + FastAPI)"
-- Footer: Copyright, links (if any), current year
+1. **Page Load:** The Page Component requests data from the **Backend Presentation Layer** (`/api/v1/tasks`).
+2. **Authorization:** The page includes the `Bearer Token` in the request header.
+3. **Hydration:** The Server Component passes initial data to Client Components (like `TaskList`) to prevent layout shifts.
 
-**Visual Style**:
-- Full-width hero with gradient or subtle background
-- Centered content on mobile
-- Responsive grid for benefits section
+## 6. Implementation Instructions for Agent
 
-**Interactivity**:
-- No data fetching
-- CTA buttons navigate directly
-
-### 3.2 Sign Up Page – `/signup`
-
-**Layout**: Root Layout  
-**Purpose**: Allow new users to create an account
-
-**Content & Structure**:
-- Centered card/form container
-- Page title: "Create Your Account"
-- Form fields (via AuthForm component):
-  - Name (optional input)
-  - Email (required, email validation)
-  - Password (required, min length, show/hide toggle)
-  - Submit button: "Sign Up"
-- Link below form: "Already have an account? Sign In" → /signin
-- Loading state: spinner on submit
-- Success → redirect to /dashboard + toast "Account created!"
-- Errors → field-specific messages + toast for general errors
-
-**SEO/Meta**:
-- Title: "Sign Up – Todo App"
-- Description: "Create a free account to start managing your tasks securely"
-
-### 3.3 Sign In Page – `/signin`
-
-**Layout**: Root Layout  
-**Purpose**: Allow existing users to log in
-
-**Content & Structure**:
-- Centered card/form
-- Page title: "Sign In to Your Account"
-- Form fields:
-  - Email (required)
-  - Password (required, show/hide)
-  - Submit button: "Sign In"
-- Link below: "Don't have an account? Sign Up" → /signup
-- Optional: "Forgot password?" (out of scope for Phase II)
-- Loading + success/error handling same as signup
-- Success → redirect to /dashboard + toast "Welcome back!"
-
-**SEO/Meta**:
-- Title: "Sign In – Todo App"
-
-### 3.4 Dashboard Page – `/dashboard`
-
-**Layout**: Dashboard Layout (`app/dashboard/layout.tsx`)  
-**Purpose**: The only protected page – contains **all** authenticated functionality
-
-**Dashboard Layout Structure**:
-- Top Navbar / Header
-  - App logo / name (clickable → /dashboard)
-  - User avatar / name dropdown
-  - Logout button
-  - Theme toggle (light/dark/system)
-- Optional Sidebar (collapsible on mobile)
-  - Navigation items (future: Settings, Profile, Help)
-  - Current: just "Dashboard" active
-- Main Content Area
-  - Full-width responsive container
-
-**Main Content Sections (in dashboard/page.tsx)**:
-1. **Header / Welcome**
-   - "Welcome back, {user.name || 'User'}!"
-   - Quick stats summary (total tasks today / pending)
-
-2. **Add Task Section**
-   - Prominent TaskForm (inline or floating action button)
-   - Title input + description textarea + submit
-
-3. **Task Controls Bar**
-   - Filter dropdown (All / Pending / Completed)
-   - Sort dropdown (Newest / Oldest / A–Z / Z–A)
-   - Search input (debounced)
-
-4. **Task List Area**
-   - <TaskList /> component
-   - Shows tasks or <EmptyState /> if none
-   - Infinite scroll or pagination (simple offset/limit for Phase II)
-
-5. **Analytics Section** (below or sidebar)
-   - <AnalyticsCards /> grid (total, pending, completed, %)
-   - <CompletionChart /> (pie or bar)
-
-**Loading & Error States**:
-- Full-page skeleton on initial load
-- Per-section skeletons for refetches
-- Error boundary + retry button if API fails
-- Toast for success/error feedback
-
-**SEO/Meta**:
-- Title: "Dashboard – Todo App"
-- Noindex (private page) – add `<meta name="robots" content="noindex" />`
-
-## 4. Global UI Patterns
-
-- Consistent padding/margin (4–6 spacing scale)
-- Max-width container (e.g., 7xl or 6xl) for readability
-- Toasts positioned top-right
-- Modals/dialogs for edit + delete confirm
-- Relative time formatting (e.g., "3 hours ago") via date-fns
-
-## 5. Key Specifications
-1. @specs/architecture.md - System architecture, authentication flow, API communication
-2. @specs/features/task-crud.md - Task CRUD operations specification
-3. @specs/features/authentication.md - Authentication and JWT flow
-4. @specs/api/rest-endpoints.md - Complete API endpoint documentation
-5. @specs/database/schema.md - Database schema and relationships
-6. @specs/ui/components.md - React component library
-7. @specs/overview.md - Overview about the project
-
-## 6. References & Next Files
-- Root Claude Guide: @CLAUDE.md
-- Frontend Guidelines: @frontend/CLAUDE.md
-- Backend Guidelines: @backend/CLAUDE.md 
-- Constitution: .specify/memory/constitution.md
-
-**This file is the single source of truth for page-level UI structure in Phase II.**  
-All page/layout code generation must reference this specification.
+### 6.1 Directory Structure
+```text
+/frontend/src/app
+├── (auth)
+│   ├── login/page.tsx
+│   └── signup/page.tsx
+├── (protected)
+│   ├── dashboard/page.tsx
+│   └── settings/page.tsx
+├── layout.tsx
+└── page.tsx (Landing)

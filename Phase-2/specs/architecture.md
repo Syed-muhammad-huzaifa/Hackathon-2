@@ -1,168 +1,86 @@
-# System Architecture – Hackathon II  
-**Phase II: Full-Stack Web Application**  
-**The Evolution of Todo – From CLI to Secure Multi-User Dashboard-Driven Web App**
+# System Architecture - Phase II (Industry Standard)
 
-## 1. Architecture Overview
+## 1. High-Level Design
+The application follows a **Decoupled Full-Stack Architecture** within a monorepo. It utilizes a **Layered (N-Tier) Pattern** on the backend to ensure business logic is decoupled from the API framework and data access.
 
-This architecture defines a **modern, secure, production-grade full-stack todo application** for Hackathon II (Panaversity).  
+## 2. Component Breakdown
 
-It follows a **layered client-server REST architecture** with:
+### 2.1 Frontend (The Client)
+- **Framework:** Next.js 15+ (App Router).
+- **State Management:** React Hooks and Context API for Auth state.
+- **Styling:** Tailwind CSS + Shadcn/UI for a consistent design system.
+- **Authentication:** **Better Auth** client-side SDK for managing login, signup, and session tokens.
 
-- **Public zone** → Landing page + dedicated authentication flows
-- **Protected zone** → Single Dashboard route containing **all authenticated functionality**
-- Strict **user data isolation** at API and database level
-- JWT-based authentication (Better Auth on frontend, verification on backend)
-- **Integrated analytics** inside the dashboard (counts, completion rates, basic visualizations)
-- Strong foundation for future phases: AI chatbot integration (Phase III), Kubernetes orchestration (Phase IV), event-driven features (Phase V)
+### 2.2 Backend (The API Layer)
+- **Framework:** FastAPI (Python).
+- **Concurrency:** Asynchronous (async/await) request handling.
+- **Security:** Middleware to intercept requests and verify JWT tokens issued by Better Auth.
+- **Dependency Injection:** Fast API `Depends` is used for database sessions and user authentication checks.
 
-Core user journey:
-1. Visitor lands on **public landing page** (marketing-style intro + prominent Sign Up / Sign In buttons)
-2. Clicks Sign Up or Sign In → navigates to dedicated pages
-3. Successful authentication → immediate redirect to **/dashboard**
-4. All task management, filtering, searching, sorting, and analytics happen **inside the dashboard**
+### 2.3 Data Layer (Persistence)
+- **Database:** Neon Serverless PostgreSQL.
+- **ORM:** SQLModel (Pydantic + SQLAlchemy).
+- **Schema Management:** Automated table creation via `SQLModel.metadata.create_all()` on application startup.
 
-Design principles (expert perspective):
-- Single source of truth for authenticated experience → Dashboard as the "control center"
-- Progressive enhancement → Server Components for initial loads, Client Components for interactivity
-- Security-first → Row-level security + JWT path validation
-- Performance → Indexed queries, minimal client-side state
-- Extensibility → Dashboard layout supports future tabs/sections (chatbot, settings, advanced analytics)
+## 3. Layered Responsibilities (The Strict Flow)
 
-## 2. High-Level Architecture Diagram 
-┌───────────────────────────────────────┐
-│         Public Zone (Unauthenticated) │
-│                                       │
-│   Landing Page (/)                    │
-│   • Hero section, app value prop      │
-│   • Sign Up / Sign In prominent CTAs  │
-└──────────────────────┬────────────────┘
-│ HTTPS
-▼
-┌───────────────────────────────────────┐           ┌───────────────────────────────────────┐
-│  Sign Up Page (/signup)               │◄─────────►│  Backend – FastAPI                    │
-│  Sign In Page (/signin)               │  REST API │  • JWT Verification Middleware       │
-│  • Better Auth forms                  │           │  • SQLModel ORM & Aggregations        │
-│  • Redirect to /dashboard on success  │           │  • Task CRUD + Analytics Endpoints    │
-└───────────────────────────────────────┘           │  • Strict user_id ownership checks     │
-└───────────────────────┬───────────────┘
-│
-▼
-┌─────────────────────────────┐
-│  Neon Serverless PostgreSQL │
-│  • users table (Better Auth)│
-│  • tasks table (user_id FK) │
-└─────────────────────────────┘
-After Login ──►
-┌───────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                 Protected Dashboard (/dashboard)                              │
-│                                                                                               │
-│  • Dashboard Layout (sidebar/top nav with logout, user info)                                  │
-│  • Task Management Area:                                                                      │
-│    - Task List (view, inline edit, delete buttons, complete toggle)                           │
-│    - Add Task Form (floating or top section)                                                  │
-│    - Filters (status, priority), Sort (date, title), Search bar                               │
-│  • Analytics Widgets Section:                                                                 │
-│    - Cards: Total Tasks, Pending, Completed, Completion %                                     │
-│    - Simple Chart: Pie/Bar showing completion distribution                                    │
-│    - Optional: Tasks over time (line chart – last 7 days)                                     │
-│                                                                                               │
-└───────────────────────────────────────────────────────────────────────────────────────────────┘
+Communication must follow this unidirectional path: 
+**Client** → **Routes** → **Services** → **Repositories** → **Database**.
 
-## 3. Detailed Component Breakdown
+### 2.1 Presentation Layer (Routes)
+- **Location:** `backend/app/api/`
+- **Role:** Handles HTTP protocols (GET, POST, etc.), request parsing, and status code responses.
+- **Rule:** Never contains SQL or business rules. It only calls the Service layer.
 
-### 3.1 Frontend (Next.js – Phase-2/frontend/)
+### 2.2 Service Layer (Business Logic)
+- **Location:** `backend/app/services/`
+- **Role:** The "Brain." It validates user ownership (e.g., "Is this task actually mine?"), performs calculations, and coordinates data.
+- **Rule:** Acts as a bridge. It is framework-agnostic.
 
-**Technologies**:
-- Next.js 16+ (App Router)
-- TypeScript (strict)
-- Tailwind CSS
-- Better Auth (JWT issuance)
-- Recharts or Chart.js for analytics visualizations
-- shadcn/ui or custom components
+### 2.3 Data Access Layer (Repositories)
+- **Location:** `backend/app/repositories/`
+- **Role:** The only layer allowed to interface with `SQLModel` and the database.
+- **Rule:** Performs atomic CRUD operations.
 
-**Route Structure**:
-- `/` → Landing page (public)
-- `/signup` → Dedicated sign-up page
-- `/signin` → Dedicated sign-in page
-- `/dashboard` → Protected dashboard (all features live here)
+### 2.4 Domain Layer (Models)
+- **Location:** `backend/app/models/`
+- **Role:** Shared Pydantic/SQLModel definitions used by all layers.
 
-**Dashboard Features (all in one route)**:
-- Task CRUD UI (list + form + actions)
-- Filter controls (dropdowns, toggles)
-- Sort options
-- Keyword search input
-- Analytics cards & charts (fetched via API)
+## 4. Technology & Infrastructure Stack
 
-**Protection**:
-- Middleware (`middleware.ts` at root) checks JWT/session → redirects unauthenticated to `/signin`
+| Component | Technology | Role |
+| :--- | :--- | :--- |
+| **Package Manager** | **uv** | Fast, reliable dependency and venv management. |
+| **Backend** | **FastAPI** | High-performance asynchronous API layer. |
+| **ORM** | **SQLModel** | Unified Pydantic validation and SQLAlchemy queries. |
+| **Database** | **Neon PostgreSQL** | Serverless storage with cloud-native scaling. |
+| **Frontend** | **Next.js 15+** | App Router, React Server Components, and TypeScript. |
+| **Authentication** | **Better Auth** | Managed authentication with JWT session tokens. |
 
-**Folder Structure**:
-frontend/
-├── app/
-│   ├── layout.tsx                 # Root layout (public)
-│   ├── page.tsx                   # Landing page (/)
-│   ├── signup/
-│   │   └── page.tsx
-│   ├── signin/
-│   │   └── page.tsx
-│   └── dashboard/
-│       ├── layout.tsx             # Protected layout (nav, sidebar, logout)
-│       └── page.tsx               # Dashboard content (tasks + analytics)
-├── components/
-│   ├── landing/                   # Hero, CTA buttons
-│   ├── auth/                      # SignUpForm, SignInForm
-│   └── dashboard/
-│       ├── TaskList.tsx
-│       ├── TaskForm.tsx
-│       ├── FilterControls.tsx
-│       ├── AnalyticsCards.tsx
-│       └── CompletionChart.tsx
-├── lib/
-│   └── api.ts                     # API client with JWT
-└── CLAUDE.md
+## 5. Directory Structure
 
-### 3.2 Backend (FastAPI – Phase-2/backend/)
+```text
+/root
+├── /specs                 # Source of Truth (Markdown)
+├── /frontend              # Next.js App
+└── /backend
+    ├── pyproject.toml     # Managed by uv
+    └── /app
+        ├── main.py        # Entry point & Lifespan management
+        ├── /api           # Presentation Layer (Routes)
+        │   └── deps.py    # DI for DB and Services
+        ├── /services      # Service Layer (Business Logic)
+        ├── /repositories  # Data Access Layer (SQL)
+        ├── /models        # Shared Models (Tables/Schemas)
+        └── /core          # Security/Config (JWT, Env)
+```
 
-**Endpoints**:
-- Task CRUD: `/api/{user_id}/tasks`, `/api/{user_id}/tasks/{id}`, etc.
-- Analytics: `/api/{user_id}/analytics` (returns JSON with counts, completion %, etc.)
+## 6. Security & Request Lifecycle
 
-**Middleware**: JWT verification + path user_id validation
+1. **Tokenization:** Frontend sends JWT in `Authorization: Bearer <token>` header.
 
-**Folder Structure**:
+2. **Interception:** `backend/app/api/deps.py` extracts the `user_id` using the `BETTER_AUTH_SECRET`.
 
-### 3.3 Database (Neon Serverless PostgreSQL)
+3. **Context Injection:** The `user_id` is passed into the Service, then to the Repository.
 
-- Schema unchanged
-- Supports fast analytics via indexed queries (COUNT, GROUP BY completed, date_trunc for time-based stats)
-
-## 4. Authentication & Flow Summary
-
-1. Visitor → Landing page → Sign Up/Sign In CTA
-2. Auth page → Better Auth → JWT issued → redirect to `/dashboard`
-3. Middleware protects dashboard → verifies JWT
-4. Dashboard loads → fetches tasks + analytics data
-5. All interactions stay in dashboard
-
-## 5. Non-Functional Highlights
-
-- **Security**: JWT + row-level filters, input validation
-- **Performance**: Aggregates cached if needed (future), Neon auto-scale
-- **UX**: Responsive, loading skeletons, toast notifications
-- **Observability**: OpenAPI docs, structured logging
-- **DevOps**: Monorepo, docker-compose local, Vercel frontend
-
-## Key Specifications
-1. @specs/overview.md - Overview about the project
-2. @specs/features/task-crud.md - Task CRUD operations specification
-3. @specs/features/authentication.md - Authentication and JWT flow
-4. @specs/api/rest-endpoints.md - Complete API endpoint documentation
-5. @specs/database/schema.md - Database schema and relationships
-6. @specs/ui/components.md - React component library
-7. @specs/ui/pages.md - Next.js pages and routing
-
-## References & Next Files
-- Root Claude Guide: @CLAUDE.md
-- Frontend Guidelines: @frontend/CLAUDE.md
-- Backend Guidelines: @backend/CLAUDE.md 
-- Constitution: .specify/memory/constitution.md
+4. **Data Isolation:** Every query is strictly scoped: `SELECT * FROM tasks WHERE user_id = current_user_id`.

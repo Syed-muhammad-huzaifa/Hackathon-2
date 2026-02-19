@@ -230,3 +230,12 @@ See `.specify/memory/constitution.md` for code quality, testing, performance, se
 - Use direct git commands (use GitHub MCP Server)
 - Skip MCP servers (especially Context7)
 - Assume code patterns without checking Skills and Context7
+
+## Active Technologies
+- Python 3.12+ + FastAPI (latest stable), SQLModel (async ORM), pyjwt (JWT verification), psycopg3 (async PostgreSQL driver), Pydantic (validation) (002-todo-backend-api)
+- Neon Serverless PostgreSQL with async connection pooling (002-todo-backend-api)
+- TypeScript (strict mode), Next.js 15 (App Router) + Next.js 15, Tailwind CSS, Better Auth (JWT plugin), shadcn/ui, Recharts or Chart.js, httpx (API client) (003-todo-frontend)
+- N/A (frontend consumes backend REST API at `/api/{user_id}/tasks`) (003-todo-frontend)
+
+## Recent Changes
+- 002-todo-backend-api: Added Python 3.12+ + FastAPI (latest stable), SQLModel (async ORM), pyjwt (JWT verification), psycopg3 (async PostgreSQL driver), Pydantic (validation)

@@ -1,0 +1,581 @@
+# Task API Contract (OpenAPI 3.1.0)
+
+**Feature**: 002-todo-backend-api
+**Date**: 2026-02-16
+**Base URL**: `/api/{user_id}`
+
+## OpenAPI Specification
+
+```yaml
+openapi: 3.1.0
+info:
+  title: Task Management API
+  description: |
+    RESTful API for managing user tasks with multi-tenant data isolation.
+    All endpoints require JWT authentication via Better Auth.
+
+    **Multi-tenancy**: All endpoints are scoped to the authenticated user.
+    The `user_id` in the path MUST match the authenticated user's ID from the JWT token.
+
+    **Authentication**: Include JWT token in Authorization header: `Bearer <token>`
+
+    @spec: specs/002-todo-backend-api/spec.md
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+  - url: https://api.example.com
+    description: Production server
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Tasks
+    description: Task CRUD operations
+
+paths:
+  /api/{user_id}/tasks:
+    parameters:
+      - $ref: '#/components/parameters/UserIdPath'
+
+    get:
+      tags:
+        - Tasks
+      summary: List all tasks for authenticated user
+      description: |
+        Retrieves all tasks belonging to the authenticated user.
+        Deleted tasks are excluded by default.
+
+        **Multi-tenancy**: Returns only tasks where task.user_id == authenticated user_id
+
+        @spec: specs/002-todo-backend-api/spec.md (FR-003, US-1)
+      operationId: listTasks
+      parameters:
+        - name: status
+          in: query
+          description: Filter tasks by status
+          required: false
+          schema:
+            type: string
+            enum: [pending, in_progress, completed]
+        - name: priority
+          in: query
+          description: Filter tasks by priority
+          required: false
+          schema:
+            type: string
+            enum: [low, medium, high]
+      responses:
+        '200':
+          description: Successfully retrieved task list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskListResponse'
+              example:
+                status: success
+                data:
+                  - id: "123e4567-e89b-12d3-a456-426614174000"
+                    user_id: "user-abc-123"
+                    title: "Complete project documentation"
+                    description: "Write comprehensive docs for the API"
+                    status: "in_progress"
+                    priority: "high"
+                    created_at: "2026-02-16T10:00:00Z"
+                    updated_at: "2026-02-16T14:30:00Z"
+                  - id: "223e4567-e89b-12d3-a456-426614174001"
+                    user_id: "user-abc-123"
+                    title: "Review pull requests"
+                    description: null
+                    status: "pending"
+                    priority: "medium"
+                    created_at: "2026-02-16T11:00:00Z"
+                    updated_at: "2026-02-16T11:00:00Z"
+                meta:
+                  total: 2
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Tasks
+      summary: Create a new task
+      description: |
+        Creates a new task for the authenticated user.
+        The task is automatically associated with the user_id from the JWT token.
+
+        @spec: specs/002-todo-backend-api/spec.md (FR-004, US-2)
+      operationId: createTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskCreateRequest'
+            example:
+              title: "Complete project documentation"
+              description: "Write comprehensive docs for the API"
+              priority: "high"
+      responses:
+        '201':
+          description: Task created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskSingleResponse'
+              example:
+                status: success
+                data:
+                  id: "123e4567-e89b-12d3-a456-426614174000"
+                  user_id: "user-abc-123"
+                  title: "Complete project documentation"
+                  description: "Write comprehensive docs for the API"
+                  status: "pending"
+                  priority: "high"
+                  created_at: "2026-02-16T10:00:00Z"
+                  updated_at: "2026-02-16T10:00:00Z"
+                message: "Task created successfully"
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/{user_id}/tasks/{task_id}:
+    parameters:
+      - $ref: '#/components/parameters/UserIdPath'
+      - $ref: '#/components/parameters/TaskIdPath'
+
+    get:
+      tags:
+        - Tasks
+      summary: Get a specific task
+      description: |
+        Retrieves a single task by ID for the authenticated user.
+        Returns 404 if task doesn't exist or doesn't belong to the user.
+
+        @spec: specs/002-todo-backend-api/spec.md (FR-003, FR-007)
+      operationId: getTask
+      responses:
+        '200':
+          description: Successfully retrieved task
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskSingleResponse'
+              example:
+                status: success
+                data:
+                  id: "123e4567-e89b-12d3-a456-426614174000"
+                  user_id: "user-abc-123"
+                  title: "Complete project documentation"
+                  description: "Write comprehensive docs for the API"
+                  status: "in_progress"
+                  priority: "high"
+                  created_at: "2026-02-16T10:00:00Z"
+                  updated_at: "2026-02-16T14:30:00Z"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    patch:
+      tags:
+        - Tasks
+      summary: Update a task
+      description: |
+        Updates an existing task for the authenticated user.
+        Only provided fields are updated; omitted fields remain unchanged.
+        Returns 404 if task doesn't exist or doesn't belong to the user.
+
+        @spec: specs/002-todo-backend-api/spec.md (FR-005, FR-013, US-3)
+      operationId: updateTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskUpdateRequest'
+            example:
+              status: "completed"
+              priority: "high"
+      responses:
+        '200':
+          description: Task updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskSingleResponse'
+              example:
+                status: success
+                data:
+                  id: "123e4567-e89b-12d3-a456-426614174000"
+                  user_id: "user-abc-123"
+                  title: "Complete project documentation"
+                  description: "Write comprehensive docs for the API"
+                  status: "completed"
+                  priority: "high"
+                  created_at: "2026-02-16T10:00:00Z"
+                  updated_at: "2026-02-16T15:45:00Z"
+                message: "Task updated successfully"
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - Tasks
+      summary: Delete a task
+      description: |
+        Soft-deletes a task by setting status to 'deleted'.
+        Returns 404 if task doesn't exist or doesn't belong to the user.
+
+        @spec: specs/002-todo-backend-api/spec.md (FR-006, FR-007, US-4)
+      operationId: deleteTask
+      responses:
+        '200':
+          description: Task deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Task deleted successfully
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT token issued by Better Auth.
+        Include in Authorization header: `Bearer <token>`
+
+        Token payload must contain:
+        - user_id: User identifier
+        - email: User email
+        - exp: Expiration timestamp
+        - iat: Issued at timestamp
+
+  parameters:
+    UserIdPath:
+      name: user_id
+      in: path
+      required: true
+      description: |
+        User identifier. MUST match the authenticated user's ID from JWT token.
+        Requests with mismatched user_id return 403 Forbidden.
+      schema:
+        type: string
+        example: "user-abc-123"
+
+    TaskIdPath:
+      name: task_id
+      in: path
+      required: true
+      description: Task unique identifier (UUID)
+      schema:
+        type: string
+        format: uuid
+        example: "123e4567-e89b-12d3-a456-426614174000"
+
+  schemas:
+    TaskCreateRequest:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Task title (required, 1-500 characters)
+          example: "Complete project documentation"
+        description:
+          type: string
+          maxLength: 10000
+          nullable: true
+          description: Task description (optional, max 10000 characters)
+          example: "Write comprehensive docs for the API"
+        priority:
+          type: string
+          enum: [low, medium, high]
+          default: medium
+          description: Task priority (optional, defaults to 'medium')
+          example: "high"
+
+    TaskUpdateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Task title (1-500 characters)
+          example: "Updated task title"
+        description:
+          type: string
+          maxLength: 10000
+          nullable: true
+          description: Task description (max 10000 characters)
+          example: "Updated description"
+        status:
+          type: string
+          enum: [pending, in_progress, completed, deleted]
+          description: Task status
+          example: "completed"
+        priority:
+          type: string
+          enum: [low, medium, high]
+          nullable: true
+          description: Task priority
+          example: "high"
+
+    TaskResponse:
+      type: object
+      required:
+        - id
+        - user_id
+        - title
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Task unique identifier
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        user_id:
+          type: string
+          description: Owner's user identifier
+          example: "user-abc-123"
+        title:
+          type: string
+          description: Task title
+          example: "Complete project documentation"
+        description:
+          type: string
+          nullable: true
+          description: Task description
+          example: "Write comprehensive docs for the API"
+        status:
+          type: string
+          enum: [pending, in_progress, completed, deleted]
+          description: Task status
+          example: "in_progress"
+        priority:
+          type: string
+          enum: [low, medium, high]
+          nullable: true
+          description: Task priority
+          example: "high"
+        created_at:
+          type: string
+          format: date-time
+          description: Task creation timestamp (ISO 8601)
+          example: "2026-02-16T10:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp (ISO 8601)
+          example: "2026-02-16T14:30:00Z"
+
+    TaskListResponse:
+      type: object
+      required:
+        - status
+        - data
+        - meta
+      properties:
+        status:
+          type: string
+          enum: [success]
+          example: success
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskResponse'
+        meta:
+          type: object
+          properties:
+            total:
+              type: integer
+              description: Total number of tasks returned
+              example: 2
+
+    TaskSingleResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        status:
+          type: string
+          enum: [success]
+          example: success
+        data:
+          $ref: '#/components/schemas/TaskResponse'
+        message:
+          type: string
+          nullable: true
+          description: Optional success message
+          example: "Task created successfully"
+
+    ErrorResponse:
+      type: object
+      required:
+        - status
+        - code
+        - message
+      properties:
+        status:
+          type: string
+          enum: [error]
+          example: error
+        code:
+          type: string
+          description: Machine-readable error code
+          example: "TASK_NOT_FOUND"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Task not found"
+        details:
+          type: object
+          nullable: true
+          description: Additional error details
+          additionalProperties: true
+          example:
+            task_id: "123e4567-e89b-12d3-a456-426614174000"
+
+  responses:
+    BadRequestError:
+      description: Bad request - invalid input data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: error
+            code: "VALIDATION_ERROR"
+            message: "Invalid input data"
+            details:
+              field: "title"
+              error: "Title cannot be empty"
+
+    UnauthorizedError:
+      description: Unauthorized - missing or invalid JWT token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: error
+            code: "UNAUTHORIZED"
+            message: "Invalid or expired token"
+
+    ForbiddenError:
+      description: Forbidden - user_id in path doesn't match authenticated user
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: error
+            code: "FORBIDDEN"
+            message: "Access denied - user_id mismatch"
+
+    NotFoundError:
+      description: Not found - task doesn't exist or doesn't belong to user
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: error
+            code: "TASK_NOT_FOUND"
+            message: "Task not found"
+            details:
+              task_id: "123e4567-e89b-12d3-a456-426614174000"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: error
+            code: "INTERNAL_ERROR"
+            message: "An unexpected error occurred"
+```
+
+## Contract Summary
+
+**Endpoints**: 4
+- `GET /api/{user_id}/tasks` - List tasks
+- `POST /api/{user_id}/tasks` - Create task
+- `GET /api/{user_id}/tasks/{task_id}` - Get task
+- `PATCH /api/{user_id}/tasks/{task_id}` - Update task
+- `DELETE /api/{user_id}/tasks/{task_id}` - Delete task
+
+**Authentication**: JWT Bearer token (required for all endpoints)
+
+**Multi-tenancy**: All endpoints enforce user_id matching between path parameter and JWT token
+
+**Response Format**:
+- Success: `{ status: "success", data: {...}, message?: string, meta?: {...} }`
+- Error: `{ status: "error", code: string, message: string, details?: {...} }`
+
+**HTTP Status Codes**:
+- 200: OK (GET, PATCH, DELETE)
+- 201: Created (POST)
+- 400: Bad Request (validation errors)
+- 401: Unauthorized (missing/invalid token)
+- 403: Forbidden (user_id mismatch)
+- 404: Not Found (task doesn't exist or doesn't belong to user)
+- 500: Internal Server Error
+
+**Constitution Compliance**:
+- ✅ Spec-First: All endpoints traced to spec requirements
+- ✅ Multi-tenancy: user_id path parameter enforced on all endpoints
+- ✅ Security: JWT authentication required for all operations
+- ✅ Standardized: Consistent response format for success and errors
