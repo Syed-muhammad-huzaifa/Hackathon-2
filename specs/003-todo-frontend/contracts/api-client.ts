@@ -1,0 +1,246 @@
+/**
+ * Type-safe API client for backend communication
+ *
+ * @spec specs/003-todo-frontend/spec.md (FR-003, FR-036, FR-037)
+ */
+
+import { z } from 'zod'
+
+// ============================================================================
+// Configuration
+// ============================================================================
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
+// ============================================================================
+// Error Classes
+// ============================================================================
+
+export class APIError extends Error {
+  constructor(
+    public status: number,
+    public code: string,
+    public details?: unknown
+  ) {
+    super(`API Error: ${code}`)
+    this.name = 'APIError'
+  }
+}
+
+export class NetworkError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'NetworkError'
+  }
+}
+
+// ============================================================================
+// API Client
+// ============================================================================
+
+interface RequestOptions extends RequestInit {
+  skipAuth?: boolean
+}
+
+/**
+ * Type-safe API client with automatic JWT injection and Zod validation
+ *
+ * @param endpoint - API endpoint path (e.g., '/auth/sign-in')
+ * @param schema - Zod schema for response validation
+ * @param options - Fetch options (method, body, headers, etc.)
+ * @returns Parsed and validated response data
+ *
+ * @throws {APIError} When API returns error response
+ * @throws {NetworkError} When network request fails
+ * @throws {z.ZodError} When response doesn't match schema
+ */
+export async function apiClient<T>(
+  endpoint: string,
+  schema: z.ZodSchema<T>,
+  options: RequestOptions = {}
+): Promise<T> {
+  const { skipAuth = false, ...fetchOptions } = options
+
+  const url = `${API_BASE_URL}${endpoint}`
+
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...fetchOptions.headers,
+  }
+
+  try {
+    const response = await fetch(url, {
+      ...fetchOptions,
+      headers,
+      credentials: skipAuth ? 'omit' : 'include', // Send cookies for auth
+    })
+
+    // Parse response body
+    const data = await response.json()
+
+    // Handle error responses
+    if (!response.ok) {
+      throw new APIError(
+        response.status,
+        data.code || 'UNKNOWN_ERROR',
+        data.details
+      )
+    }
+
+    // Validate and parse response with Zod
+    return schema.parse(data)
+  } catch (error) {
+    // Re-throw API errors and Zod errors as-is
+    if (error instanceof APIError || error instanceof z.ZodError) {
+      throw error
+    }
+
+    // Network errors (fetch failed)
+    if (error instanceof TypeError) {
+      throw new NetworkError('Network request failed. Please check your connection.')
+    }
+
+    // Unknown errors
+    throw new NetworkError('An unexpected error occurred')
+  }
+}
+
+// ============================================================================
+// Convenience Methods
+// ============================================================================
+
+/**
+ * GET request
+ */
+export async function get<T>(
+  endpoint: string,
+  schema: z.ZodSchema<T>,
+  options: RequestOptions = {}
+): Promise<T> {
+  return apiClient(endpoint, schema, {
+    ...options,
+    method: 'GET',
+  })
+}
+
+/**
+ * POST request
+ */
+export async function post<T>(
+  endpoint: string,
+  schema: z.ZodSchema<T>,
+  body: unknown,
+  options: RequestOptions = {}
+): Promise<T> {
+  return apiClient(endpoint, schema, {
+    ...options,
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+/**
+ * PATCH request
+ */
+export async function patch<T>(
+  endpoint: string,
+  schema: z.ZodSchema<T>,
+  body: unknown,
+  options: RequestOptions = {}
+): Promise<T> {
+  return apiClient(endpoint, schema, {
+    ...options,
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
+}
+
+/**
+ * DELETE request
+ */
+export async function del<T>(
+  endpoint: string,
+  schema: z.ZodSchema<T>,
+  options: RequestOptions = {}
+): Promise<T> {
+  return apiClient(endpoint, schema, {
+    ...options,
+    method: 'DELETE',
+  })
+}
+
+// ============================================================================
+// Error Handling Utilities
+// ============================================================================
+
+/**
+ * Check if error is an API error
+ */
+export function isAPIError(error: unknown): error is APIError {
+  return error instanceof APIError
+}
+
+/**
+ * Check if error is a network error
+ */
+export function isNetworkError(error: unknown): error is NetworkError {
+  return error instanceof NetworkError
+}
+
+/**
+ * Get user-friendly error message
+ */
+export function getErrorMessage(error: unknown): string {
+  if (isAPIError(error)) {
+    return error.message
+  }
+
+  if (isNetworkError(error)) {
+    return error.message
+  }
+
+  if (error instanceof z.ZodError) {
+    return 'Invalid response from server'
+  }
+
+  return 'An unexpected error occurred'
+}
+
+// ============================================================================
+// Usage Examples
+// ============================================================================
+
+/*
+// Example 1: Sign in
+import { post } from '@/lib/api/client'
+import { SignInRequestSchema, AuthResponseSchema } from '@/lib/schemas/auth'
+
+const response = await post(
+  '/auth/sign-in',
+  AuthResponseSchema,
+  { email: 'user@example.com', password: 'password123' },
+  { skipAuth: true } // No auth needed for sign-in
+)
+
+// Example 2: Fetch tasks
+import { get } from '@/lib/api/client'
+import { TaskListResponseSchema } from '@/lib/schemas/task'
+
+const response = await get(
+  `/api/${userId}/tasks`,
+  TaskListResponseSchema
+)
+
+// Example 3: Error handling
+try {
+  await post('/auth/sign-in', AuthResponseSchema, credentials)
+} catch (error) {
+  if (isAPIError(error) && error.code === 'INVALID_CREDENTIALS') {
+    toast.error('Invalid email or password')
+  } else if (isNetworkError(error)) {
+    toast.error('Network error. Please try again.')
+  } else {
+    toast.error(getErrorMessage(error))
+  }
+}
+*/

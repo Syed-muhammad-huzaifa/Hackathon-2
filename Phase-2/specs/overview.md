@@ -1,82 +1,33 @@
-# Todo App Overview – Hackathon II (Phase II)
+# Project Overview: Todo App - Phase II
 
-## Project Name
-hackathon-todo
+## 1. Project Mission
+The objective of Phase II is to transition the application from a CLI tool to a production-grade **Full-Stack Web Application**. This version focuses on scalability, user data isolation, and a professional **Layered Architecture** to ensure clean separation between UI, business logic, and database operations.
 
-## Current Phase
-Phase II – Full-Stack Web Application
+## 2. Core Architecture: The Layered Pattern
+To maintain industry standards, the backend is organized into three distinct layers. Communication follows a strict top-down flow:
 
-## Version
-1.0.0 (Phase II specs & initial setup)
+1.  **Presentation Layer (Routes):** Manages HTTP requests/responses and status codes.
+2.  **Service Layer (Business Logic):** Validates data, enforces permissions, and processes business rules.
+3.  **Data Access Layer (Repositories):** Executes SQL queries and manages data persistence.
 
-## Purpose
-This project evolves a simple in-memory console todo app (Phase I) into a **secure, multi-user full-stack web application** with persistent storage and proper authentication.  
-It demonstrates **spec-driven development** using Claude Code and Spec-Kit Plus — where all code is generated from written specifications (no manual coding allowed).  
-The goal is to build a clean, maintainable foundation for later phases: AI chatbot, Kubernetes deployment, and event-driven cloud-native features.
+## 3. Technology Stack
 
-## Phase II Objective (as per Hackathon Requirements)
-Transform the Python console app into a modern web app with:
-- Multi-user support via authentication
-- Persistent data in Neon Serverless PostgreSQL
-- RESTful API endpoints with JWT-based authorization
-- Responsive frontend interface
-- Strict user isolation: Each user can only access and modify their own tasks
+| Component | Technology | Description |
+| :--- | :--- | :--- |
+| **Package Manager** | **uv** | Extremely fast Python package manager for dependency resolution. |
+| **Backend** | **FastAPI** | Modern, high-performance Python web framework. |
+| **Database** | **Neon PostgreSQL** | Serverless SQL database for cloud-native persistence. |
+| **ORM** | **SQLModel** | Unified layer for Pydantic validation and SQLAlchemy queries. |
+| **Frontend** | **Next.js 15+** | React framework utilizing the App Router and TypeScript. |
+| **Authentication** | **Better Auth** | Secure credential management with JWT-based session handling. |
 
-## Core Features – Phase II (Basic Level – Mandatory)
-- Add new task (title + optional description)
-- View list of tasks (with status indicators)
-- Update task details
-- Delete task by ID
-- Mark task as complete / incomplete
-- User signup & signin
-- JWT token issuance and verification for API security
-- All operations filtered by authenticated user_id
+## 4. Key Functional Requirements
+* **Multi-User Support:** Secure signup and login functionality.
+* **User Isolation:** Strict "Source of Truth" checks to ensure users only access their own data.
+* **Full CRUD:** Create, Read, Update, and Delete tasks through a modern web UI.
+* **Persistence:** All data is stored in the Neon cloud, surviving server restarts.
 
-## Tech Stack – Phase II
-### Frontend
-- Next.js 16+ (App Router)
-- TypeScript
-- Tailwind CSS
-- Better Auth (with JWT plugin enabled)
-
-### Backend
-- FastAPI (Python 3.13+)
-- SQLModel (ORM + validation)
-- Neon Serverless PostgreSQL (via DATABASE_URL env var)
-
-### Shared / Tools
-- Authentication: Better Auth + JWT (shared secret via BETTER_AUTH_SECRET)
-- Project structure: Monorepo with specs/ folder
-
-## Key Constraints & Principles
-- User data isolation enforced at API and database level
-- Stateless backend where possible
-- Clean code, proper error handling (HTTP exceptions), validation
-- Environment variables for all secrets
-
-## Development Workflow (Spec-Driven)
-1. Write/update Markdown specs in `/specs/`
-2. System design documented in @specs/architecture.md
-3. Claude generates code in Phase-2/frontend & backend
-4. Iterate: Refine spec → re-generate → test
-5. Commit specs history (shows process to judges)
-
-## Key Specifications
-1. @specs/architecture.md - System architecture, authentication flow, API communication
-2. @specs/features/task-crud.md - Task CRUD operations specification
-3. @specs/features/authentication.md - Authentication and JWT flow
-4. @specs/api/rest-endpoints.md - Complete API endpoint documentation
-5. @specs/database/schema.md - Database schema and relationships
-6. @specs/ui/components.md - React component library
-7. @specs/ui/pages.md - Next.js pages and routing
-
-## References & Next Files
-- Root Claude Guide: @CLAUDE.md
-- Frontend Guidelines: @frontend/CLAUDE.md
-- Backend Guidelines: @backend/CLAUDE.md 
-- Constitution: .specify/memory/constitution.md
-
-## Future Phases (Teaser)
-- Phase III → AI Chatbot (natural language todo management)
-- Phase IV → Local Kubernetes (Minikube + Helm)
-- Phase V → Cloud-native (DOKS + Kafka + Dapr)
+## 5. Development Standards
+* **Spec-Driven Development (SDD):** All implementation follows the definitions in the `/specs` folder.
+* **Type Safety:** Strict use of TypeScript (Frontend) and Pydantic/Type Hints (Backend).
+* **Automated Schema:** Use of `SQLModel.metadata.create_all()` for automatic table generation.

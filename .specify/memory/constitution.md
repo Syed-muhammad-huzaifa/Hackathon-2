@@ -1,21 +1,41 @@
 <!--
 Sync Impact Report:
-Version: 1.0.0 (Initial constitution for Phase-2)
-Modified Principles: N/A (initial version)
-Added Sections: All sections (initial creation)
-Removed Sections: None
+Version: 1.0.0 → 2.0.0 (MAJOR: Fundamental principle restructuring and architectural paradigm shift)
+Modified Principles:
+  - Spec-Driven Development → Spec-First Integrity (strengthened language)
+  - User Data Isolation → Mandatory Multi-tenancy (expanded scope, stricter enforcement)
+  - JWT Authentication & Authorization → Consolidated into Security Requirements section
+  - API-First Design → Consolidated into Key Standards section
+  - Responsive & Accessible UI → Consolidated into Key Standards section
+  - Performance & Scalability → Updated criteria (500ms → 200ms), consolidated into Success Criteria
+  - Test-First Development → Remains in Development Workflow (no longer top-level principle)
+Added Principles:
+  - N-Tier Layered Architecture (NEW - critical architectural principle)
+  - Asynchronous First (NEW - performance and scalability foundation)
+Removed Principles:
+  - None removed, but 5 principles consolidated into supporting sections
+Technology Stack Updates:
+  - Python 3.13+ → 3.12+ (user specification)
+  - Next.js 16 → 15 (user specification)
+  - Added: 'uv' as mandatory Python dependency manager
+  - Added: psycopg3 async driver requirement
+  - Performance: API p95 < 500ms → < 200ms (stricter)
 Templates Status:
-  ✅ plan-template.md - Aligned with constitution check requirements
-  ✅ spec-template.md - Aligned with user story and requirements structure
-  ✅ tasks-template.md - Aligned with test-first and phase-based approach
-Follow-up TODOs: None
+  ✅ plan-template.md - Constitution Check section will reflect new principles
+  ✅ spec-template.md - User story structure remains compatible
+  ✅ tasks-template.md - Phase structure supports N-Tier and async patterns
+  ⚠ commands/*.md - May need updates to reference new principle names
+Follow-up TODOs:
+  - Verify all command files reference correct principle names
+  - Update any runtime guidance files (CLAUDE.md) to reflect N-Tier architecture
+  - Consider adding N-Tier validation checklist to plan template
 -->
 
 # Phase-2 Todo Web Application Constitution
 
 ## Core Principles
 
-### I. Spec-Driven Development (NON-NEGOTIABLE)
+### I. Spec-First Integrity (NON-NEGOTIABLE)
 
 Every line of code MUST originate from an explicit specification document. No code shall be written, modified, or suggested without a traceable reference to a specification file in `/specs/`.
 
@@ -25,12 +45,30 @@ Every line of code MUST originate from an explicit specification document. No co
 - If a feature is not in specs → update specs first, then implement
 - Code reviews MUST verify spec traceability for every change
 - Spec files are the single source of truth; code is derivative
+- All code must be derived from and validated against specifications
+- No assumptions or "best practices" override explicit spec requirements
 
-**Rationale:** Ensures intentional design, prevents scope creep, maintains documentation accuracy, and enables AI-assisted development with clear requirements.
+**Rationale:** Ensures intentional design, prevents scope creep, maintains documentation accuracy, and enables AI-assisted development with clear requirements. Spec-first development eliminates ambiguity and provides a contract between design and implementation.
 
-### II. User Data Isolation (ZERO-TOLERANCE)
+### II. N-Tier Layered Architecture (NON-NEGOTIABLE)
 
-Every user's data MUST be completely isolated from all other users. No user shall ever access, view, modify, or delete another user's tasks under any circumstances.
+The application MUST maintain strict separation between Presentation (API/Routes), Service (Business Logic), and Repository (Data Access) layers. No layer shall bypass or directly access another layer's responsibilities.
+
+**Rules:**
+- **Presentation Layer (Routes/API)**: Handles HTTP requests, authentication, input validation, response formatting. MUST NOT contain business logic or database queries.
+- **Service Layer (Business Logic)**: Implements use cases, orchestrates operations, enforces business rules. MUST NOT handle HTTP concerns or construct SQL queries.
+- **Repository Layer (Data Access)**: Executes database operations, constructs queries, manages transactions. MUST NOT contain business logic or HTTP handling.
+- Routes call Services; Services call Repositories; NO other cross-layer calls permitted
+- Each layer has single responsibility and clear boundaries
+- Data flows: Request → Route → Service → Repository → Database (and reverse)
+- Dependency injection used to wire layers together
+- Layer violations detected in code review are blocking issues
+
+**Rationale:** Separation of concerns enables independent testing, maintainability, and scalability. Clear boundaries prevent "spaghetti code" and make the system easier to reason about, modify, and extend.
+
+### III. Mandatory Multi-tenancy (ZERO-TOLERANCE)
+
+Every user's data MUST be completely isolated from all other users. No user shall ever access, view, modify, or delete another user's tasks under any circumstances. Every data operation MUST be scoped and verified by user_id.
 
 **Rules:**
 - Every database query MUST include `WHERE user_id = :authenticated_user_id`
@@ -40,102 +78,123 @@ Every user's data MUST be completely isolated from all other users. No user shal
 - All list/search/filter operations MUST be scoped to authenticated user only
 - Database indexes MUST include `user_id` as first column for performance
 - Return 404 (not 403) for non-owned resources to prevent existence leakage
+- Repository layer MUST enforce user_id filtering on ALL queries
+- Service layer MUST validate user_id matches authenticated user
+- Absolute isolation: User A cannot access or modify User B's data under any condition
 
-**Rationale:** Privacy and security are non-negotiable. Data leakage destroys user trust and violates fundamental security principles.
+**Rationale:** Privacy and security are non-negotiable. Data leakage destroys user trust and violates fundamental security principles. Multi-tenancy must be enforced at every layer to prevent accidental or malicious data access.
 
-### III. JWT Authentication & Authorization
+### IV. Asynchronous First (NON-NEGOTIABLE)
 
-All protected routes and API endpoints MUST enforce JWT-based authentication with strict token validation and user verification.
-
-**Rules:**
-- Better Auth issues JWT tokens on successful signup/signin
-- Shared secret (`BETTER_AUTH_SECRET`) MUST be identical in frontend and backend
-- Backend MUST verify: signature validity, token expiry, payload integrity
-- Invalid/missing/expired tokens → 401 Unauthorized + redirect to `/signin`
-- User ID mismatch between JWT and path → 403 Forbidden
-- Tokens stored in httpOnly cookies (preferred) or secure localStorage
-- Session validity: 7 days default (configurable)
-- HTTPS enforced in production (no exceptions)
-- Passwords MUST be hashed (handled by Better Auth)
-- No secrets hardcoded in code or committed to git
-
-**Rationale:** Secure authentication is the foundation of multi-user applications. Weak auth = complete system compromise.
-
-### IV. API-First Design with Consistent Contracts
-
-All backend endpoints MUST follow a consistent RESTful design with standardized request/response formats and proper HTTP semantics.
+All backend I/O and database operations MUST be non-blocking using async/await patterns. Synchronous blocking operations are prohibited in request handlers.
 
 **Rules:**
-- Base path: `/api/{user_id}/[resource]`
-- Response format (success): `{ status: "success", data: {...}, message?: string, meta?: {...} }`
-- Response format (error): `{ status: "error", code: string, message: string, details?: {...} }`
-- HTTP status codes: 200 (OK), 201 (Created), 400 (Bad Request), 401 (Unauthorized), 403 (Forbidden), 404 (Not Found), 500 (Server Error)
-- All timestamps in ISO 8601 UTC format with Z suffix
-- Input validation on both frontend (UX) and backend (security)
-- Pydantic models for request/response validation in FastAPI
-- OpenAPI documentation auto-generated and accessible
-- CORS configured to allow only trusted frontend origins
+- All database operations use async SQLModel methods (`session.exec()` → `await session.exec()`)
+- All external API calls use async HTTP clients (httpx, aiohttp)
+- All file I/O operations use async methods (aiofiles)
+- FastAPI route handlers declared with `async def`
+- Repository methods declared with `async def`
+- Service methods declared with `async def` when calling async repositories
+- Database driver MUST support async (psycopg3 async driver for PostgreSQL)
+- Connection pooling configured for async operations
+- No `time.sleep()` or blocking waits in request paths
+- Background tasks use FastAPI BackgroundTasks or async task queues
 
-**Rationale:** Consistent APIs reduce bugs, improve developer experience, enable auto-documentation, and simplify testing.
+**Rationale:** Asynchronous operations maximize throughput and resource efficiency. Blocking operations in async frameworks cause performance degradation and prevent the application from scaling to handle concurrent users effectively.
 
-### V. Responsive & Accessible UI
+## Key Standards
 
-All user interfaces MUST be fully responsive across devices and accessible to users with disabilities, following modern web standards.
+### Backend Standards
+- **Framework**: FastAPI (latest stable)
+- **Language**: Python 3.12+ with 100% type hint coverage
+- **Dependency Management**: 'uv' (mandatory - no manual pip installs)
+- **ORM**: SQLModel for async database operations
+- **Database Driver**: psycopg3 async driver for PostgreSQL
+- **Authentication**: Better Auth JWT verification with shared secret
+- **Validation**: Pydantic models for all request/response schemas
+- **API Design**: RESTful with base path `/api/{user_id}/[resource]`
+- **Response Format (Success)**: `{ status: "success", data: {...}, message?: string, meta?: {...} }`
+- **Response Format (Error)**: `{ status: "error", code: string, message: string, details?: {...} }`
+- **HTTP Status Codes**: 200 (OK), 201 (Created), 400 (Bad Request), 401 (Unauthorized), 403 (Forbidden), 404 (Not Found), 500 (Server Error)
 
-**Rules:**
-- Mobile-first design approach with Tailwind CSS
-- Breakpoints: mobile (default), tablet (md:), desktop (lg:, xl:)
-- Server Components by default; Client Components only for interactivity
-- Semantic HTML elements (button, input, label, nav, main, etc.)
-- ARIA labels on icon-only buttons and interactive elements
-- Keyboard navigation support (tab order, focus states, enter/space activation)
-- Focus indicators visible (ring-2 ring-indigo-500)
-- Color contrast ratios meet WCAG AA standards minimum
-- Loading states (skeletons) for async operations
-- Error boundaries for graceful failure handling
-- Toast notifications for user feedback (success/error)
-- Dark mode support via Tailwind class strategy
+### Frontend Standards
+- **Framework**: Next.js 15 (App Router only)
+- **Language**: TypeScript (strict mode) with zero 'any' types
+- **Styling**: Tailwind CSS with mobile-first approach
+- **Components**: shadcn/ui component library
+- **Authentication**: Better Auth (JWT plugin) with httpOnly cookies
+- **State Management**: React Server Components by default; Client Components only for interactivity
+- **Accessibility**: Semantic HTML, ARIA labels, keyboard navigation, WCAG AA contrast ratios
+- **Responsive Design**: Breakpoints - mobile (default), tablet (md:), desktop (lg:, xl:)
+- **Error Handling**: Error boundaries and toast notifications for user feedback
 
-**Rationale:** Accessibility is a right, not a feature. Responsive design ensures usability across all devices and contexts.
+### Database Standards
+- **Database**: Neon Serverless PostgreSQL
+- **Driver**: psycopg3 async driver
+- **Migrations**: Alembic for schema versioning
+- **Indexes**: All queries must have supporting indexes; user_id as first column in composite indexes
+- **Connection Pooling**: Configured for async operations (handled by Neon)
 
-### VI. Performance & Scalability Standards
+### Security Standards
+- **Authentication**: Better Auth with JWT tokens (7-day validity default)
+- **Token Verification**: Backend MUST verify signature, expiry, and payload integrity
+- **Shared Secret**: `BETTER_AUTH_SECRET` identical in frontend and backend
+- **Password Hashing**: Handled by Better Auth (bcrypt/argon2)
+- **HTTPS**: Enforced in production (no exceptions)
+- **Input Validation**: Both frontend (UX) and backend (security)
+- **SQL Injection Prevention**: Parameterized queries via SQLModel
+- **XSS Prevention**: React's automatic escaping
+- **CSRF Protection**: SameSite cookies
+- **Secrets Management**: Environment variables only; no hardcoded credentials
+- **CORS**: Configured to allow only trusted frontend origins
 
-The application MUST meet defined performance benchmarks and scale efficiently to support concurrent users without degradation.
+## Constraints
 
-**Rules:**
+### Environment Constraints
+- Python dependency management MUST use 'uv' exclusively
+- No manual pip installs permitted
+- All dependencies declared in `pyproject.toml` or `requirements.txt`
+- Environment variables for all configuration (documented in `.env.example`)
+
+### Performance Constraints
+- API response time (p95): < 200ms for standard CRUD operations
 - Initial dashboard load: < 2 seconds on standard broadband
-- API response time (p95): < 500ms for CRUD operations
 - Search response: < 300ms after last keystroke (debounced)
-- Database queries MUST use proper indexes (user_id, completed, created_at)
+- Database queries MUST use proper indexes
 - No N+1 query problems (use proper joins/eager loading)
 - Pagination support: default 50 items, max 100 per page
-- Optimistic UI updates with rollback on error
-- Connection pooling for database (handled by Neon)
+
+### Scalability Constraints
 - Baseline capacity: 100 concurrent users, 1000 tasks per user
-- Frontend bundle size monitoring (avoid unnecessary dependencies)
+- Connection pooling for database (handled by Neon)
+- Optimistic UI updates with rollback on error
 
-**Rationale:** Performance directly impacts user experience and retention. Slow apps are abandoned apps.
+## Success Criteria
 
-### VII. Test-First Development (Recommended)
+### Layer Integrity
+- **No Layer Leaks**: Routes never call Repositories; Repositories never contain business logic
+- **Single Responsibility**: Each layer has clear, testable boundaries
+- **Dependency Flow**: Presentation → Service → Repository (one direction only)
 
-Testing is strongly encouraged to ensure code quality, catch regressions early, and validate specifications.
+### Data Isolation
+- **Absolute Isolation**: Verified that User A cannot access or modify User B's data
+- **User ID Enforcement**: Every query filtered by authenticated user_id
+- **Security Testing**: Attempted cross-user access returns 404 or 403 appropriately
 
-**Rules:**
-- Write tests BEFORE implementation when feasible (Red-Green-Refactor)
-- Tests MUST fail initially to prove they test the right behavior
-- Test categories: Contract tests (API contracts), Integration tests (user journeys), Unit tests (business logic)
-- Tests organized by user story for independent validation
-- Each user story MUST be independently testable
-- Manual testing checklist for acceptance criteria validation
-- Error scenarios MUST be tested (invalid input, unauthorized access, not found)
-- Test data MUST NOT leak between tests (proper setup/teardown)
+### Performance
+- **API Response Times**: < 200ms for standard CRUD operations (p95)
+- **Async Operations**: All I/O operations non-blocking
+- **Database Performance**: Proper indexes on all query paths
 
-**Rationale:** Tests provide confidence in changes, document expected behavior, and enable safe refactoring.
+### Type Safety
+- **Python**: 100% type hint coverage on all functions and methods
+- **TypeScript**: Zero 'any' types; strict mode enabled
+- **Validation**: Pydantic/Zod schemas for all API contracts
 
 ## Technology Stack (Fixed & Non-Negotiable)
 
 **Frontend:**
-- Next.js 16+ (App Router only)
+- Next.js 15 (App Router only)
 - TypeScript (strict mode)
 - Tailwind CSS
 - Better Auth (JWT plugin)
@@ -145,8 +204,10 @@ Testing is strongly encouraged to ensure code quality, catch regressions early, 
 **Backend:**
 - FastAPI
 - SQLModel (ORM)
-- Python 3.13+
+- Python 3.12+
+- 'uv' (dependency management)
 - pyjwt (JWT verification)
+- psycopg3 (async PostgreSQL driver)
 - Alembic (migrations)
 
 **Database:**
@@ -157,7 +218,7 @@ Testing is strongly encouraged to ensure code quality, catch regressions early, 
 - Backend: Render/Railway/DigitalOcean (or similar)
 - Database: Neon Serverless PostgreSQL
 
-**Rationale:** Standardized stack reduces complexity, improves maintainability, and leverages proven technologies.
+**Rationale:** Standardized stack reduces complexity, improves maintainability, and leverages proven technologies optimized for async operations and multi-tenancy.
 
 ## Development Workflow
 
@@ -166,8 +227,8 @@ Testing is strongly encouraged to ensure code quality, catch regressions early, 
 2. Review and approve specification
 3. Generate implementation plan (`/sp.plan`)
 4. Generate tasks (`/sp.tasks`)
-5. Implement code with spec references
-6. Test against acceptance criteria
+5. Implement code with spec references and N-Tier architecture
+6. Test against acceptance criteria (layer isolation, multi-tenancy, performance)
 7. Create Prompt History Record (PHR) for traceability
 8. Commit with descriptive message + Co-Authored-By: Claude
 
@@ -178,33 +239,34 @@ Testing is strongly encouraged to ensure code quality, catch regressions early, 
 - Prompt history: `history/prompts/`
 - Architecture decisions: `history/adr/`
 
+**Backend Structure (N-Tier):**
+```
+backend/
+├── src/
+│   ├── api/          # Presentation Layer (routes, dependencies)
+│   ├── services/     # Service Layer (business logic)
+│   ├── repositories/ # Repository Layer (data access)
+│   ├── models/       # SQLModel entities
+│   └── schemas/      # Pydantic request/response schemas
+└── tests/
+```
+
 **Code Quality Gates:**
 - TypeScript strict mode with no `any` types
-- Python type hints on all functions
+- Python type hints on all functions (100% coverage)
 - Linting passes (ESLint, Ruff/Black)
 - No console.log in production code
 - Environment variables for all configuration
 - `.env.example` documents all required variables
+- Layer separation verified in code review
 
-## Security Requirements
-
-**Mandatory Security Practices:**
-- Input validation and sanitization on all user input
-- SQL injection prevention via parameterized queries (SQLModel handles this)
-- XSS prevention via React's automatic escaping
-- CSRF protection via SameSite cookies
-- Rate limiting on authentication endpoints (future enhancement)
-- Secrets stored in environment variables only
-- No sensitive data in logs or error messages
-- HTTPS enforced in production
-- Security headers configured (CSP, X-Frame-Options, etc.)
-
-**Prohibited Practices:**
-- Hardcoded credentials or API keys
-- Storing passwords in plain text
-- Exposing internal error details to users
-- Allowing SQL injection vectors
-- Trusting client-side validation alone
+**Testing Approach (Recommended):**
+- Write tests BEFORE implementation when feasible (Red-Green-Refactor)
+- Test categories: Contract tests (API contracts), Integration tests (user journeys), Unit tests (business logic)
+- Tests organized by user story for independent validation
+- Each user story MUST be independently testable
+- Error scenarios MUST be tested (invalid input, unauthorized access, not found)
+- Test data MUST NOT leak between tests (proper setup/teardown)
 
 ## Governance
 
@@ -222,7 +284,13 @@ This constitution supersedes all other development practices and guidelines. Whe
 
 **Compliance Verification:**
 - All pull requests MUST verify compliance with constitution principles
-- Code reviews MUST check for spec traceability and security requirements
+- Code reviews MUST check for:
+  - Spec traceability
+  - N-Tier layer separation (no layer leaks)
+  - Multi-tenancy enforcement (user_id filtering)
+  - Async/await usage for all I/O operations
+  - Type safety (no 'any' types, 100% type hints)
+  - Security requirements (JWT verification, input validation)
 - Complexity additions MUST be justified in plan.md Complexity Tracking section
 - Violations MUST be documented and approved before merging
 
@@ -232,4 +300,4 @@ This constitution supersedes all other development practices and guidelines. Whe
 - Root guidance: See `Phase-2/CLAUDE.md`
 - All guidance files MUST align with this constitution
 
-**Version**: 1.0.0 | **Ratified**: 2026-02-12 | **Last Amended**: 2026-02-12
+**Version**: 2.0.0 | **Ratified**: 2026-02-12 | **Last Amended**: 2026-02-16
