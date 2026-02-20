@@ -23,7 +23,11 @@ export const auth = betterAuth({
     },
   }),
   baseURL: process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "http://localhost:3000",
-  trustedOrigins: ["http://localhost:3000", "http://localhost:3001"],
+  trustedOrigins: [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "",
+  ].filter(Boolean),
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false,

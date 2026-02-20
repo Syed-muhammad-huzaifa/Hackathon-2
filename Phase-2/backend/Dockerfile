@@ -27,12 +27,13 @@ RUN useradd -m -u 1000 appuser && \
 # Switch to non-root user
 USER appuser
 
-# Expose port
-EXPOSE 8001
+# Expose port (HF Spaces default)
+EXPOSE 7860
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD curl -f http://localhost:8001/health/live || exit 1
+  CMD curl -f http://localhost:7860/health/live || exit 1
 
 # Run application (workers can be overridden via environment variable)
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "1"]
+# Use --proxy-headers for Hugging Face reverse proxy
+CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860", "--workers", "1", "--proxy-headers", "--forwarded-allow-ips", "*"]

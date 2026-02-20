@@ -3,10 +3,6 @@
 
 
 
-
-
-
-
 /**
  * Authentication API service using Better Auth
  *
@@ -39,7 +35,7 @@ export async function signIn(data: { email: string; password: string }) {
   const response = await authClient.signIn.email({
     email: data.email,
     password: data.password,
-    rememberMe: false, // Session cookie — expires when browser closes
+    rememberMe: true,
   });
 
   if (response.error) {

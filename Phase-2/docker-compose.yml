@@ -38,7 +38,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8001}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://huz111-backed-todo.hf.space}
         NEXT_PUBLIC_BETTER_AUTH_URL: ${NEXT_PUBLIC_BETTER_AUTH_URL:-http://localhost:3000}
     container_name: taskflow-frontend
     ports:
@@ -48,8 +48,8 @@ services:
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
       - BETTER_AUTH_URL=${FRONTEND_BETTER_AUTH_URL}
       - DATABASE_URL=${FRONTEND_DATABASE_URL}
-      # Server-side API URL (container-to-container via Docker network)
-      - API_URL=http://backend:8001
+      # Server-side API URL (HF deployed backend)
+      - API_URL=https://huz111-backed-todo.hf.space
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
@@ -59,9 +59,6 @@ services:
       start_period: 40s
     networks:
       - taskflow-network
-    depends_on:
-      backend:
-        condition: service_healthy
 
 networks:
   taskflow-network:
