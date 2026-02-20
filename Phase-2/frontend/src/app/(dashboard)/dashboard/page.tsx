@@ -34,7 +34,8 @@ async function getPageData() {
   let tasks: Task[] = [];
   if (tokenResponse?.token) {
     try {
-      const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+      // Use NEXT_PUBLIC_API_URL which is available in both client and server
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://huz111-backend-todo.hf.space';
       // Add timestamp to bust Next.js cache
       const cacheBuster = `?_t=${Date.now()}`;
       const res = await fetch(`${apiUrl}/api/${session.user.id}/tasks${cacheBuster}`, {
