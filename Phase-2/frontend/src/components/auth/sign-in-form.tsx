@@ -35,13 +35,18 @@ export function SignInForm() {
     setIsLoading(true);
 
     try {
-      await signIn(data);
+      const result = await signIn(data);
 
-      toast.success('Welcome back!');
+      // Check if sign-in was successful
+      if (result && result.user) {
+        toast.success('Welcome back!');
 
-      // Use Next.js router for better cookie handling
-      router.push('/dashboard');
-      router.refresh();
+        // Force a full page reload to ensure cookies are set
+        window.location.replace('/dashboard');
+      } else {
+        toast.error('Sign in failed. Please try again.');
+        setIsLoading(false);
+      }
     } catch (error) {
       if (isAPIError(error)) {
         if (error.code === 'INVALID_CREDENTIALS') {
