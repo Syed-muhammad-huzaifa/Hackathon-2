@@ -18,43 +18,15 @@ export async function middleware(request: NextRequest) {
     if (!sessionToken) {
       return NextResponse.redirect(new URL('/sign-in', request.url));
     }
-
-    // Validate session by calling the session endpoint
-    try {
-      const response = await fetch(new URL('/api/auth/get-session', request.url), {
-        headers: {
-          cookie: request.headers.get('cookie') || '',
-        },
-      });
-
-      if (!response.ok) {
-        // Session invalid, redirect to sign-in
-        return NextResponse.redirect(new URL('/sign-in', request.url));
-      }
-    } catch {
-      // If validation fails, redirect to sign-in
-      return NextResponse.redirect(new URL('/sign-in', request.url));
-    }
+    // Session cookie exists, allow access
+    return NextResponse.next();
   }
 
   // Redirect authenticated users away from auth pages
   if (pathname.startsWith('/sign-in') || pathname.startsWith('/sign-up')) {
     if (sessionToken) {
-      // Validate session before redirecting
-      try {
-        const response = await fetch(new URL('/api/auth/get-session', request.url), {
-          headers: {
-            cookie: request.headers.get('cookie') || '',
-          },
-        });
-
-        if (response.ok) {
-          // Valid session, redirect to dashboard
-          return NextResponse.redirect(new URL('/dashboard', request.url));
-        }
-      } catch {
-        // Session validation failed, allow access to auth pages
-      }
+      // Valid session cookie exists, redirect to dashboard
+      return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   }
 
