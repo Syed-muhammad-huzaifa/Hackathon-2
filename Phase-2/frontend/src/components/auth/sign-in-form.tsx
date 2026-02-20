@@ -7,7 +7,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { SignInRequestSchema, type SignInRequest } from '@/lib/schemas/auth';
@@ -21,7 +20,6 @@ import { toast } from 'sonner';
 
 export function SignInForm() {
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
 
   const {
     register,
