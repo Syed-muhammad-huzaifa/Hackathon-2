@@ -39,8 +39,30 @@ export function SignInForm() {
       if (result && result.user) {
         toast.success('Welcome back!');
 
-        // Force a full page reload to ensure cookies are set
-        window.location.replace('/dashboard');
+        // Wait for session to be fully established
+        // Check if session cookie exists before redirecting
+        const checkSession = async () => {
+          try {
+            const response = await fetch('/api/auth/session');
+            if (response.ok) {
+              const sessionData = await response.json();
+              if (sessionData.user) {
+                // Session confirmed, now redirect
+                window.location.href = '/dashboard';
+              } else {
+                // Session not ready, try again
+                setTimeout(checkSession, 200);
+              }
+            } else {
+              setTimeout(checkSession, 200);
+            }
+          } catch {
+            setTimeout(checkSession, 200);
+          }
+        };
+
+        // Start checking for session
+        checkSession();
       } else {
         toast.error('Sign in failed. Please try again.');
         setIsLoading(false);
