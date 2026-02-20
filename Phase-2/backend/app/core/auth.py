@@ -55,7 +55,7 @@ async def _get_jwks() -> dict:
     # Fetch fresh JWKS from Better Auth
     async with httpx.AsyncClient() as client:
         response = await client.get(
-            f"{settings.BETTER_AUTH_URL}/api/auth/jwks",
+            f"{settings.BETTER_AUTH_URL.rstrip('/')}/api/auth/jwks",
             timeout=10.0,
         )
         response.raise_for_status()
