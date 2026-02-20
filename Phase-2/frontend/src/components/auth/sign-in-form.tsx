@@ -7,6 +7,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { SignInRequestSchema, type SignInRequest } from '@/lib/schemas/auth';
@@ -20,6 +21,7 @@ import { toast } from 'sonner';
 
 export function SignInForm() {
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   const {
     register,
@@ -37,10 +39,9 @@ export function SignInForm() {
 
       toast.success('Welcome back!');
 
-      // Wait a bit for session cookie to be set, then redirect
-      setTimeout(() => {
-        window.location.href = '/dashboard';
-      }, 500);
+      // Use Next.js router for better cookie handling
+      router.push('/dashboard');
+      router.refresh();
     } catch (error) {
       if (isAPIError(error)) {
         if (error.code === 'INVALID_CREDENTIALS') {
