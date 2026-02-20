@@ -11,7 +11,10 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Check for Better Auth session cookie
-  const sessionToken = request.cookies.get('better-auth.session_token')?.value;
+  // In production (HTTPS), Better Auth prefixes cookies with __Secure-
+  const sessionToken =
+    request.cookies.get('__Secure-better-auth.session_token')?.value ||
+    request.cookies.get('better-auth.session_token')?.value;
 
   // Protect dashboard routes - require valid session
   if (pathname.startsWith('/dashboard')) {
