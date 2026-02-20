@@ -27,11 +27,11 @@ cd /home/syedhuzaifa/Hackathon-2/Phase-2/backend
 git config credential.helper store
 echo "https://huz111:${HF_TOKEN}@huggingface.co" > ~/.git-credentials
 
-# Push to Space
+# Push to Space (subtree: only Phase-2/backend/ as root)
 echo "Pushing to Space..."
 git remote remove space 2>/dev/null || true
-git remote add space https://huggingface.co/spaces/huz111/backend-todo
-git push space main --force
+git remote add space https://huz111:${HF_TOKEN}@huggingface.co/spaces/huz111/backend-todo
+git push space $(git subtree split --prefix=Phase-2/backend HEAD):main --force
 
 if [ $? -eq 0 ]; then
     echo ""
