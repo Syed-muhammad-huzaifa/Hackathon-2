@@ -37,8 +37,10 @@ export function SignInForm() {
 
       toast.success('Welcome back!');
 
-      // Hard redirect so the browser sends fresh session cookies to the server
-      window.location.href = '/dashboard';
+      // Wait a bit for session cookie to be set, then redirect
+      setTimeout(() => {
+        window.location.href = '/dashboard';
+      }, 500);
     } catch (error) {
       if (isAPIError(error)) {
         if (error.code === 'INVALID_CREDENTIALS') {
@@ -51,7 +53,6 @@ export function SignInForm() {
       } else {
         toast.error(getErrorMessage(error));
       }
-    } finally {
       setIsLoading(false);
     }
   };
