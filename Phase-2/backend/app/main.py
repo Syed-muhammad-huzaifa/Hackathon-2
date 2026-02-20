@@ -113,8 +113,7 @@ async def root():
 
 # Include routers
 
-from app.api.v1 import tasks, health, auth
-app.include_router(auth.router)
+from app.api.v1 import tasks, health
 app.include_router(tasks.router, tags=["tasks"])
 app.include_router(health.router, tags=["health"])
 
