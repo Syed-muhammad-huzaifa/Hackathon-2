@@ -1,8 +1,4 @@
 
-
-
-
-
 /**
  * Authentication API service using Better Auth
  *
