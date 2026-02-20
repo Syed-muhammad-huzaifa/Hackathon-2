@@ -1,12 +1,13 @@
 /**
  * Type-safe API client for backend communication
  *
- * Automatically injects JWT tokens from localStorage for FastAPI backend authentication.
+ * Automatically injects JWT tokens from Better Auth for FastAPI backend authentication.
  *
  * @spec specs/003-todo-frontend/spec.md (FR-003, FR-036, FR-037)
  */
 
 import { z } from 'zod'
+import { authClient } from '@/lib/auth/client'
 
 // ============================================================================
 // Configuration
@@ -25,19 +26,19 @@ async function getJWTToken(): Promise<string | null> {
     return cachedToken
   }
 
-  // Get token from localStorage (stored by auth.ts after sign-in/sign-up)
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('auth_token')
+  // Fetch new token using Better Auth JWT plugin
+  try {
+    const { data, error } = await authClient.token()
 
-    if (!token) {
+    if (error || !data?.token) {
       return null
     }
 
-    cachedToken = token
+    cachedToken = data.token
 
-    // Decode JWT to get expiration
+    // Decode JWT to get expiration (tokens typically expire in 15 minutes)
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]))
+      const payload = JSON.parse(atob(data.token.split('.')[1]))
       tokenExpiresAt = payload.exp * 1000 // Convert to milliseconds
     } catch {
       // If we can't decode, cache for 10 minutes
@@ -45,9 +46,9 @@ async function getJWTToken(): Promise<string | null> {
     }
 
     return cachedToken
+  } catch {
+    return null
   }
-
-  return null
 }
 
 // ============================================================================
