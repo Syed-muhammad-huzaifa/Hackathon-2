@@ -1,3 +1,49 @@
+---
+title: TaskFlow Frontend
+emoji: ✨
+colorFrom: purple
+colorTo: blue
+sdk: docker
+pinned: false
+license: mit
+app_port: 7860
+---
+
+# TaskFlow Frontend
+
+A modern, production-ready Next.js 15 frontend for task management with Better Auth authentication.
+
+## Features
+
+- **Next.js 15 App Router**: Modern React framework with server components
+- **Better Auth Integration**: Secure JWT-based authentication
+- **Tailwind CSS + shadcn/ui**: Beautiful, accessible UI components
+- **Real-time Updates**: Optimistic UI updates for instant feedback
+- **Responsive Design**: Mobile-first, works on all devices
+- **Type-safe**: Full TypeScript support
+
+## Environment Variables
+
+Configure these in your Space settings:
+
+- `NEXT_PUBLIC_API_URL`: Backend API URL (e.g., https://huz111-backend-todo.hf.space)
+- `NEXT_PUBLIC_BETTER_AUTH_URL`: Frontend URL (will be your Space URL)
+- `BETTER_AUTH_SECRET`: JWT signing secret (must match backend)
+- `DATABASE_URL`: PostgreSQL connection string (for Better Auth user storage)
+
+## Tech Stack
+
+- Next.js 15 (App Router)
+- TypeScript
+- Tailwind CSS
+- shadcn/ui components
+- Better Auth
+- React Hook Form + Zod
+
+Built with ❤️ using Next.js and deployed on Hugging Face Spaces
+
+---
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started

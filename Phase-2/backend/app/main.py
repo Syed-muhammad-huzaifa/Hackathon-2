@@ -99,6 +99,18 @@ if settings.RATE_LIMIT_ENABLED:
 # Add request logging middleware
 app.add_middleware(RequestLoggingMiddleware)
 
+# Root endpoint
+@app.get("/")
+async def root():
+    """Root endpoint - API information"""
+    return {
+        "name": "TaskFlow Backend API",
+        "version": "0.1.0",
+        "status": "running",
+        "docs": "/docs" if not settings.is_production else "disabled",
+        "health": "/health/live"
+    }
+
 # Include routers
 
 from app.api.v1 import tasks, health, auth
