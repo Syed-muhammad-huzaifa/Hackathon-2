@@ -236,6 +236,9 @@ See `.specify/memory/constitution.md` for code quality, testing, performance, se
 - Neon Serverless PostgreSQL with async connection pooling (002-todo-backend-api)
 - TypeScript (strict mode), Next.js 15 (App Router) + Next.js 15, Tailwind CSS, Better Auth (JWT plugin), shadcn/ui, Recharts or Chart.js, httpx (API client) (003-todo-frontend)
 - N/A (frontend consumes backend REST API at `/api/{user_id}/tasks`) (003-todo-frontend)
+- Neon Serverless PostgreSQL (shared with Phase 2) (001-chatbot-backend)
+- TypeScript 5.x (strict mode, zero 'any' types) (001-chatbot-frontend)
+- N/A (all data persisted on backend via API calls) (001-chatbot-frontend)
 
 ## Recent Changes
 - 002-todo-backend-api: Added Python 3.12+ + FastAPI (latest stable), SQLModel (async ORM), pyjwt (JWT verification), psycopg3 (async PostgreSQL driver), Pydantic (validation)

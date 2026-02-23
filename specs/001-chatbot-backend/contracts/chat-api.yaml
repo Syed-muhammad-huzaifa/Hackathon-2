@@ -1,0 +1,372 @@
+openapi: 3.0.0
+info:
+  title: AI Chatbot API
+  version: 1.0.0
+  description: |
+    Natural language task management via AI chatbot.
+
+    **Stateless Architecture**: Every request fetches conversation history from database,
+    processes with AI agent, executes MCP tools, and persists results.
+
+    **Multi-tenancy**: All operations scoped to authenticated user via JWT verification.
+  contact:
+    name: Phase 3 Chatbot Backend
+    url: https://github.com/your-repo
+
+servers:
+  - url: https://phase3-backend.hf.space
+    description: Production (Hugging Face Spaces)
+  - url: http://localhost:8000
+    description: Local development
+
+security:
+  - BearerAuth: []
+
+paths:
+  /api/{user_id}/chat:
+    post:
+      summary: Send message to AI chatbot
+      description: |
+        Stateless endpoint that processes user message with AI agent,
+        executes MCP tools, and returns assistant response.
+
+        **Flow**:
+        1. Verify JWT token (user_id must match token subject)
+        2. Fetch conversation history from database (last 20 messages)
+        3. Process message with OpenAI Agent + MCP tools
+        4. Persist user message and assistant response
+        5. Return response with tool calls
+
+        **Stateless**: No server-side session state. All context from database.
+      operationId: sendChatMessage
+      tags:
+        - Chat
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Authenticated user ID (must match JWT subject claim)
+          example: "8ecS0AdpQAeC9J1QAlPXxbFfTtauM0NY"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+            examples:
+              newConversation:
+                summary: Start new conversation
+                value:
+                  message: "Add a task to buy groceries"
+              continueConversation:
+                summary: Continue existing conversation
+                value:
+                  conversation_id: 123
+                  message: "What tasks do I have?"
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+              examples:
+                taskAdded:
+                  summary: Task added successfully
+                  value:
+                    conversation_id: 123
+                    response: "✓ Task added: Buy groceries"
+                    tool_calls:
+                      - tool: "add_task"
+                        parameters:
+                          user_id: "8ecS0AdpQAeC9J1QAlPXxbFfTtauM0NY"
+                          title: "Buy groceries"
+                        result:
+                          task_id: 5
+                          status: "created"
+                          title: "Buy groceries"
+                tasksList:
+                  summary: Tasks listed
+                  value:
+                    conversation_id: 123
+                    response: "You have 3 pending tasks:\n1. Buy groceries\n2. Call mom\n3. Pay bills"
+                    tool_calls:
+                      - tool: "list_tasks"
+                        parameters:
+                          user_id: "8ecS0AdpQAeC9J1QAlPXxbFfTtauM0NY"
+                          status: "pending"
+                        result:
+                          - id: 1
+                            title: "Buy groceries"
+                            completed: false
+                          - id: 2
+                            title: "Call mom"
+                            completed: false
+                          - id: 3
+                            title: "Pay bills"
+                            completed: false
+        '400':
+          description: Bad request (invalid message format)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                emptyMessage:
+                  summary: Empty message
+                  value:
+                    status: "error"
+                    code: "INVALID_REQUEST"
+                    message: "Message cannot be empty"
+                messageTooLong:
+                  summary: Message exceeds limit
+                  value:
+                    status: "error"
+                    code: "INVALID_REQUEST"
+                    message: "Message exceeds 2000 character limit"
+        '401':
+          description: Unauthorized (invalid or missing JWT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missingToken:
+                  summary: Missing JWT token
+                  value:
+                    status: "error"
+                    code: "UNAUTHORIZED"
+                    message: "Authentication required"
+                expiredToken:
+                  summary: Expired JWT token
+                  value:
+                    status: "error"
+                    code: "UNAUTHORIZED"
+                    message: "Token has expired"
+        '403':
+          description: Forbidden (user_id mismatch with JWT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                userIdMismatch:
+                  summary: User ID doesn't match JWT
+                  value:
+                    status: "error"
+                    code: "FORBIDDEN"
+                    message: "User ID mismatch"
+                conversationNotOwned:
+                  summary: Conversation belongs to another user
+                  value:
+                    status: "error"
+                    code: "FORBIDDEN"
+                    message: "Conversation not found"
+        '500':
+          description: Server error (OpenAI API failure, database error)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                openaiError:
+                  summary: OpenAI API unavailable
+                  value:
+                    status: "error"
+                    code: "AI_SERVICE_ERROR"
+                    message: "I'm having trouble connecting right now. Please try again in a moment."
+                databaseError:
+                  summary: Database connection error
+                  value:
+                    status: "error"
+                    code: "DATABASE_ERROR"
+                    message: "Unable to process request. Please try again."
+
+  /health/live:
+    get:
+      summary: Liveness probe
+      description: Check if server is running
+      operationId: healthLive
+      tags:
+        - Health
+      security: []
+      responses:
+        '200':
+          description: Server is alive
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+
+  /health/ready:
+    get:
+      summary: Readiness probe
+      description: Check if server is ready to accept requests (database connected, OpenAI API accessible)
+      operationId: healthReady
+      tags:
+        - Health
+      security: []
+      responses:
+        '200':
+          description: Server is ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ready"
+                  database:
+                    type: string
+                    example: "connected"
+                  openai:
+                    type: string
+                    example: "accessible"
+        '503':
+          description: Server not ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "not_ready"
+                  database:
+                    type: string
+                    example: "disconnected"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Better Auth JWT token obtained from Phase 3 frontend.
+
+        **Token Format**: `Authorization: Bearer <jwt_token>`
+
+        **Token Claims**:
+        - `sub`: User ID (must match path parameter)
+        - `exp`: Expiration timestamp
+        - `iat`: Issued at timestamp
+
+  schemas:
+    ChatRequest:
+      type: object
+      required:
+        - message
+      properties:
+        conversation_id:
+          type: integer
+          description: |
+            Existing conversation ID. If omitted, creates new conversation.
+            Must belong to authenticated user.
+          example: 123
+          minimum: 1
+        message:
+          type: string
+          description: User's natural language message
+          example: "Add a task to buy groceries"
+          minLength: 1
+          maxLength: 2000
+
+    ChatResponse:
+      type: object
+      required:
+        - conversation_id
+        - response
+        - tool_calls
+      properties:
+        conversation_id:
+          type: integer
+          description: Conversation ID (new or existing)
+          example: 123
+        response:
+          type: string
+          description: AI assistant's response
+          example: "✓ Task added: Buy groceries"
+        tool_calls:
+          type: array
+          description: List of MCP tools invoked during processing
+          items:
+            $ref: '#/components/schemas/ToolCall'
+
+    ToolCall:
+      type: object
+      required:
+        - tool
+        - parameters
+        - result
+      properties:
+        tool:
+          type: string
+          description: MCP tool name
+          enum:
+            - add_task
+            - list_tasks
+            - complete_task
+            - delete_task
+            - update_task
+          example: "add_task"
+        parameters:
+          type: object
+          description: Parameters passed to tool
+          example:
+            user_id: "8ecS0AdpQAeC9J1QAlPXxbFfTtauM0NY"
+            title: "Buy groceries"
+        result:
+          type: object
+          description: Tool execution result
+          example:
+            task_id: 5
+            status: "created"
+            title: "Buy groceries"
+
+    Error:
+      type: object
+      required:
+        - status
+        - code
+        - message
+      properties:
+        status:
+          type: string
+          enum:
+            - error
+          description: Always "error" for error responses
+        code:
+          type: string
+          description: Machine-readable error code
+          enum:
+            - INVALID_REQUEST
+            - UNAUTHORIZED
+            - FORBIDDEN
+            - AI_SERVICE_ERROR
+            - DATABASE_ERROR
+            - TOOL_EXECUTION_ERROR
+          example: "INVALID_REQUEST"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Message cannot be empty"
+        details:
+          type: object
+          description: Additional error context (optional)
+          example:
+            field: "message"
+            constraint: "minLength"
+
+tags:
+  - name: Chat
+    description: AI chatbot endpoints
+  - name: Health
+    description: Health check endpoints
