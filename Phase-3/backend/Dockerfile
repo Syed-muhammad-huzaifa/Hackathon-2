@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install dependencies via uv lockfile export
 COPY pyproject.toml uv.lock ./
 RUN pip install --no-cache-dir uv \
-    && uv export --format requirements-txt --no-dev --output requirements.txt \
+    && uv export --format requirements-txt --no-dev --output-file requirements.txt \
     && pip install --no-cache-dir -r requirements.txt \
     && rm requirements.txt
 
