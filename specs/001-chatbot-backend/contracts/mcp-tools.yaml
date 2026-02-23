@@ -1,0 +1,418 @@
+openapi: 3.0.0
+info:
+  title: MCP Tools Specification
+  version: 1.0.0
+  description: |
+    Model Context Protocol (MCP) tools for AI agent to manage tasks.
+
+    **Purpose**: Standardized interface for OpenAI Agent to interact with task management system.
+
+    **Architecture**: MCP tools call Phase 2 task repository to ensure multi-tenancy and business logic consistency.
+
+    **Stateless**: Tools do not maintain state. All state in database.
+
+tools:
+  - name: add_task
+    description: Create a new task for the user
+    parameters:
+      type: object
+      required:
+        - user_id
+        - title
+      properties:
+        user_id:
+          type: string
+          description: Authenticated user ID (from JWT)
+          example: "8ecS0AdpQAeC9J1QAlPXxbFfTtauM0NY"
+        title:
+          type: string
+          description: Task title
+          minLength: 1
+          maxLength: 200
+          example: "Buy groceries"
+        description:
+          type: string
+          description: Optional task description
+          maxLength: 1000
+          example: "Milk, eggs, bread"
+    returns:
+      type: object
+      required:
+        - task_id
+        - status
+        - title
+      properties:
+        task_id:
+          type: integer
+          description: Created task ID
+          example: 5
+        status:
+          type: string
+          enum:
+            - created
+          description: Always "created" for successful creation
+        title:
+          type: string
+          description: Task title (confirmation)
+          example: "Buy groceries"
+    examples:
+      - input:
+          user_id: "8ecS0AdpQAeC9J1QAlPXxbFfTtauM0NY"
+          title: "Buy groceries"
+          description: "Milk, eggs, bread"
+        output:
+          task_id: 5
+          status: "created"
+          title: "Buy groceries"
+      - input:
+          user_id: "8ecS0AdpQAeC9J1QAlPXxbFfTtauM0NY"
+          title: "Call mom"
+        output:
+          task_id: 6
+          status: "created"
+          title: "Call mom"
+    errors:
+      - code: VALIDATION_ERROR
+        message: "Title cannot be empty"
+        when: "title is empty or exceeds 200 characters"
+      - code: DATABASE_ERROR
+        message: "Failed to create task"
+        when: "Database operation fails"
+
+  - name: list_tasks
+    description: Retrieve user's tasks with optional status filter
+    parameters:
+      type: object
+      required:
+        - user_id
+      properties:
+        user_id:
+          type: string
+          description: Authenticated user ID (from JWT)
+          example: "8ecS0AdpQAeC9J1QAlPXxbFfTtauM0NY"
+        status:
+          type: string
+          description: Filter by task status
+          enum:
+            - all
+            - pending
+            - completed
+          default: all
+          example: "pending"
+    returns:
+      type: array
+      description: Array of task objects
+      items:
+        type: object
+        required:
+          - id
+          - title
+          - completed
+          - created_at
+        properties:
+          id:
+            type: integer
+            description: Task ID
+            example: 1
+          title:
+            type: string
+            description: Task title
+            example: "Buy groceries"
+          description:
+            type: string
+            description: Task description (may be null)
+            example: "Milk, eggs, bread"
+          completed:
+            type: boolean
+            description: Completion status
+            example: false
+          created_at:
+            type: string
+            format: date-time
+            description: Creation timestamp
+            example: "2026-02-21T10:30:00Z"
+          updated_at:
+            type: string
+            format: date-time
+            description: Last update timestamp
+            example: "2026-02-21T10:30:00Z"
+    examples:
+      - input:
+          user_id: "8ecS0AdpQAeC9J1QAlPXxbFfTtauM0NY"
+          status: "pending"
+        output:
+          - id: 1
+            title: "Buy groceries"
+            description: "Milk, eggs, bread"
+            completed: false
+            created_at: "2026-02-21T10:30:00Z"
+            updated_at: "2026-02-21T10:30:00Z"
+          - id: 2
+            title: "Call mom"
+            description: null
+            completed: false
+            created_at: "2026-02-21T11:00:00Z"
+            updated_at: "2026-02-21T11:00:00Z"
+      - input:
+          user_id: "8ecS0AdpQAeC9J1QAlPXxbFfTtauM0NY"
+          status: "all"
+        output:
+          - id: 1
+            title: "Buy groceries"
+            completed: false
+            created_at: "2026-02-21T10:30:00Z"
+          - id: 3
+            title: "Pay bills"
+            completed: true
+            created_at: "2026-02-20T09:00:00Z"
+    errors:
+      - code: DATABASE_ERROR
+        message: "Failed to retrieve tasks"
+        when: "Database operation fails"
+
+  - name: complete_task
+    description: Mark a task as complete
+    parameters:
+      type: object
+      required:
+        - user_id
+        - task_id
+      properties:
+        user_id:
+          type: string
+          description: Authenticated user ID (from JWT)
+          example: "8ecS0AdpQAeC9J1QAlPXxbFfTtauM0NY"
+        task_id:
+          type: integer
+          description: Task ID to complete
+          example: 3
+          minimum: 1
+    returns:
+      type: object
+      required:
+        - task_id
+        - status
+        - title
+      properties:
+        task_id:
+          type: integer
+          description: Completed task ID
+          example: 3
+        status:
+          type: string
+          enum:
+            - completed
+          description: Always "completed" for successful completion
+        title:
+          type: string
+          description: Task title (confirmation)
+          example: "Call mom"
+    examples:
+      - input:
+          user_id: "8ecS0AdpQAeC9J1QAlPXxbFfTtauM0NY"
+          task_id: 3
+        output:
+          task_id: 3
+          status: "completed"
+          title: "Call mom"
+    errors:
+      - code: TASK_NOT_FOUND
+        message: "Task not found"
+        when: "task_id doesn't exist or belongs to another user"
+      - code: DATABASE_ERROR
+        message: "Failed to complete task"
+        when: "Database operation fails"
+
+  - name: delete_task
+    description: Remove a task from the list
+    parameters:
+      type: object
+      required:
+        - user_id
+        - task_id
+      properties:
+        user_id:
+          type: string
+          description: Authenticated user ID (from JWT)
+          example: "8ecS0AdpQAeC9J1QAlPXxbFfTtauM0NY"
+        task_id:
+          type: integer
+          description: Task ID to delete
+          example: 2
+          minimum: 1
+    returns:
+      type: object
+      required:
+        - task_id
+        - status
+        - title
+      properties:
+        task_id:
+          type: integer
+          description: Deleted task ID
+          example: 2
+        status:
+          type: string
+          enum:
+            - deleted
+          description: Always "deleted" for successful deletion
+        title:
+          type: string
+          description: Task title (confirmation)
+          example: "Old task"
+    examples:
+      - input:
+          user_id: "8ecS0AdpQAeC9J1QAlPXxbFfTtauM0NY"
+          task_id: 2
+        output:
+          task_id: 2
+          status: "deleted"
+          title: "Old task"
+    errors:
+      - code: TASK_NOT_FOUND
+        message: "Task not found"
+        when: "task_id doesn't exist or belongs to another user"
+      - code: DATABASE_ERROR
+        message: "Failed to delete task"
+        when: "Database operation fails"
+
+  - name: update_task
+    description: Modify task title or description
+    parameters:
+      type: object
+      required:
+        - user_id
+        - task_id
+      properties:
+        user_id:
+          type: string
+          description: Authenticated user ID (from JWT)
+          example: "8ecS0AdpQAeC9J1QAlPXxbFfTtauM0NY"
+        task_id:
+          type: integer
+          description: Task ID to update
+          example: 1
+          minimum: 1
+        title:
+          type: string
+          description: New task title (optional)
+          minLength: 1
+          maxLength: 200
+          example: "Buy groceries and fruits"
+        description:
+          type: string
+          description: New task description (optional)
+          maxLength: 1000
+          example: "Milk, eggs, bread, apples, bananas"
+    returns:
+      type: object
+      required:
+        - task_id
+        - status
+        - title
+      properties:
+        task_id:
+          type: integer
+          description: Updated task ID
+          example: 1
+        status:
+          type: string
+          enum:
+            - updated
+          description: Always "updated" for successful update
+        title:
+          type: string
+          description: Updated task title (confirmation)
+          example: "Buy groceries and fruits"
+    examples:
+      - input:
+          user_id: "8ecS0AdpQAeC9J1QAlPXxbFfTtauM0NY"
+          task_id: 1
+          title: "Buy groceries and fruits"
+        output:
+          task_id: 1
+          status: "updated"
+          title: "Buy groceries and fruits"
+      - input:
+          user_id: "8ecS0AdpQAeC9J1QAlPXxbFfTtauM0NY"
+          task_id: 1
+          description: "Updated description only"
+        output:
+          task_id: 1
+          status: "updated"
+          title: "Buy groceries"
+    errors:
+      - code: TASK_NOT_FOUND
+        message: "Task not found"
+        when: "task_id doesn't exist or belongs to another user"
+      - code: VALIDATION_ERROR
+        message: "At least one field (title or description) must be provided"
+        when: "Neither title nor description provided"
+      - code: DATABASE_ERROR
+        message: "Failed to update task"
+        when: "Database operation fails"
+
+# Agent Behavior Guidelines
+agent_guidelines:
+  task_creation:
+    trigger: "User mentions adding, creating, remembering something"
+    action: "Call add_task with extracted title and description"
+    response: "Confirm task creation with friendly message"
+    example: "User: 'Add a task to buy groceries' → Agent: '✓ Task added: Buy groceries'"
+
+  task_listing:
+    trigger: "User asks to see, show, list tasks"
+    action: "Call list_tasks with appropriate status filter"
+    response: "Format tasks as numbered list or summary"
+    example: "User: 'What's pending?' → Agent: 'You have 3 pending tasks: 1. Buy groceries, 2. Call mom, 3. Pay bills'"
+
+  task_completion:
+    trigger: "User says done, complete, finished"
+    action: "Call complete_task with task_id"
+    response: "Confirm completion with task title"
+    example: "User: 'Mark task 3 as complete' → Agent: '✓ Task completed: Call mom'"
+
+  task_deletion:
+    trigger: "User says delete, remove, cancel"
+    action: "Call delete_task with task_id (may need to list first if ambiguous)"
+    response: "Confirm deletion with task title"
+    example: "User: 'Delete task 2' → Agent: '✓ Task deleted: Old task'"
+
+  task_update:
+    trigger: "User says change, update, rename"
+    action: "Call update_task with task_id and new values"
+    response: "Confirm update with new title"
+    example: "User: 'Change task 1 to Call mom tonight' → Agent: '✓ Task updated: Call mom tonight'"
+
+  ambiguous_commands:
+    trigger: "User command lacks specificity (e.g., 'delete task' without ID)"
+    action: "Call list_tasks first, then ask user to specify"
+    response: "Show available tasks and ask for clarification"
+    example: "User: 'Delete the meeting task' → Agent lists tasks → 'Which task would you like to delete? (provide task ID)'"
+
+  error_handling:
+    task_not_found:
+      response: "I couldn't find that task. Would you like to see your current tasks?"
+    validation_error:
+      response: "I need more information. [Explain what's missing]"
+    service_error:
+      response: "I'm having trouble right now. Please try again in a moment."
+
+# Multi-tenancy Enforcement
+multi_tenancy:
+  description: "All MCP tools MUST enforce user_id filtering"
+  implementation: "Tools call Phase 2 task repository which enforces WHERE user_id = :user_id"
+  security: "User A cannot access or modify User B's tasks"
+  validation: "Repository layer validates user_id matches authenticated user"
+
+# Performance Considerations
+performance:
+  tool_execution_time:
+    target: "< 100ms per tool call"
+    optimization: "Database indexes on user_id, task_id"
+  concurrent_tools:
+    support: "Multiple tools can be called in sequence"
+    example: "list_tasks → delete_task (agent chains tools)"
+  caching:
+    strategy: "No caching (stateless architecture)"
+    rationale: "Database is single source of truth"

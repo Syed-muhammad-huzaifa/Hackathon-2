@@ -1,7 +1,18 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
 # Environment secrets
 .env
 .env.local
 .env.*.local
+
+# Build outputs
+.next/
+out/
+dist/
+build/
 
 # OS
 .DS_Store
@@ -12,3 +23,10 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Testing
+coverage/
+
+# Misc
+*.log
+.turbo

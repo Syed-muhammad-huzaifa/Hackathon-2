@@ -1,0 +1,262 @@
+openapi: 3.1.0
+info:
+  title: AI Chatbot Backend API
+  description: Backend API for conversational task management chatbot
+  version: 1.0.0
+  contact:
+    name: API Support
+
+servers:
+  - url: http://localhost:8001
+    description: Local development
+  - url: https://api.yourdomain.com
+    description: Production
+
+security:
+  - BearerAuth: []
+
+paths:
+  /api/{user_id}/chat:
+    post:
+      summary: Send message to AI chatbot
+      description: |
+        Send a natural language message to the AI task manager. The AI agent
+        interprets the message and invokes appropriate MCP tools to manage tasks.
+
+        Conversation state is maintained on the backend. Include conversation_id
+        to continue an existing conversation, or omit to start a new one.
+      operationId: sendChatMessage
+      tags:
+        - Chat
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: Authenticated user's ID (must match JWT token subject)
+          schema:
+            type: string
+            format: uuid
+            example: "550e8400-e29b-41d4-a716-446655440000"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+            examples:
+              newConversation:
+                summary: Start new conversation
+                value:
+                  message: "Add a task to buy groceries tomorrow"
+              continueConversation:
+                summary: Continue existing conversation
+                value:
+                  conversation_id: "123e4567-e89b-12d3-a456-426614174000"
+                  message: "Show me all my tasks"
+      responses:
+        '200':
+          description: Successful response with AI assistant's reply
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+              examples:
+                taskCreated:
+                  summary: Task created successfully
+                  value:
+                    conversation_id: "123e4567-e89b-12d3-a456-426614174000"
+                    response: "I've added 'Buy groceries' to your task list for tomorrow."
+                    tool_calls:
+                      - tool: "add_task"
+                        parameters:
+                          user_id: "550e8400-e29b-41d4-a716-446655440000"
+                          title: "Buy groceries"
+                          description: "Tomorrow"
+                        result:
+                          task_id: "789e0123-e89b-12d3-a456-426614174000"
+                          status: "created"
+                          title: "Buy groceries"
+                tasksList:
+                  summary: Tasks listed
+                  value:
+                    conversation_id: "123e4567-e89b-12d3-a456-426614174000"
+                    response: "Here are your tasks:\n1. Buy groceries (pending)\n2. Call mom (pending)\n3. Finish report (completed)"
+                    tool_calls:
+                      - tool: "list_tasks"
+                        parameters:
+                          user_id: "550e8400-e29b-41d4-a716-446655440000"
+                          status: "all"
+                        result:
+                          - id: "789e0123-e89b-12d3-a456-426614174000"
+                            title: "Buy groceries"
+                            status: "pending"
+                          - id: "889e0123-e89b-12d3-a456-426614174001"
+                            title: "Call mom"
+                            status: "pending"
+                          - id: "989e0123-e89b-12d3-a456-426614174002"
+                            title: "Finish report"
+                            status: "completed"
+        '400':
+          description: Bad request (invalid input)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: "error"
+                code: "VALIDATION_ERROR"
+                message: "Message cannot be empty"
+        '401':
+          description: Unauthorized (missing or invalid JWT token)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: "error"
+                code: "UNAUTHORIZED"
+                message: "Authentication required"
+        '403':
+          description: Forbidden (user_id mismatch with JWT token)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: "error"
+                code: "FORBIDDEN"
+                message: "User ID mismatch"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: "error"
+                code: "AI_SERVICE_ERROR"
+                message: "Unable to process request. Please try again."
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT token from Better Auth. Include in Authorization header:
+        `Authorization: Bearer <token>`
+
+  schemas:
+    ChatRequest:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: User's natural language message
+          example: "Add a task to buy groceries tomorrow"
+        conversation_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: |
+            Existing conversation ID to continue conversation.
+            Omit or set to null to start a new conversation.
+          example: "123e4567-e89b-12d3-a456-426614174000"
+
+    ChatResponse:
+      type: object
+      required:
+        - conversation_id
+        - response
+        - tool_calls
+      properties:
+        conversation_id:
+          type: string
+          format: uuid
+          description: Conversation identifier (new or existing)
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        response:
+          type: string
+          description: AI assistant's natural language response
+          example: "I've added 'Buy groceries' to your task list."
+        tool_calls:
+          type: array
+          description: MCP tools invoked during processing
+          items:
+            $ref: '#/components/schemas/ToolCall'
+
+    ToolCall:
+      type: object
+      required:
+        - tool
+        - parameters
+        - result
+      properties:
+        tool:
+          type: string
+          description: MCP tool name
+          enum:
+            - add_task
+            - list_tasks
+            - complete_task
+            - delete_task
+            - update_task
+          example: "add_task"
+        parameters:
+          type: object
+          description: Tool input parameters
+          additionalProperties: true
+          example:
+            user_id: "550e8400-e29b-41d4-a716-446655440000"
+            title: "Buy groceries"
+        result:
+          description: Tool execution result (structure varies by tool)
+          oneOf:
+            - type: object
+            - type: array
+          example:
+            task_id: "789e0123-e89b-12d3-a456-426614174000"
+            status: "created"
+            title: "Buy groceries"
+
+    ErrorResponse:
+      type: object
+      required:
+        - status
+        - code
+        - message
+      properties:
+        status:
+          type: string
+          enum:
+            - error
+          description: Always "error" for error responses
+        code:
+          type: string
+          description: Machine-readable error code
+          enum:
+            - VALIDATION_ERROR
+            - UNAUTHORIZED
+            - FORBIDDEN
+            - TASK_NOT_FOUND
+            - DATABASE_ERROR
+            - AI_SERVICE_ERROR
+          example: "VALIDATION_ERROR"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Message cannot be empty"
+        details:
+          type: object
+          nullable: true
+          description: Optional additional error details
+          additionalProperties: true
+
+tags:
+  - name: Chat
+    description: Conversational task management endpoints
