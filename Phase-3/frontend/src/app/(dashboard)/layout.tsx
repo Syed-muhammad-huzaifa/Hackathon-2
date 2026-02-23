@@ -4,6 +4,9 @@ import { headers } from "next/headers";
 import { DashboardSidebar } from "@/components/layout/DashboardSidebar";
 import { DashboardMobileNav } from "@/components/layout/DashboardMobileNav";
 
+// Force dynamic rendering for all dashboard routes
+export const dynamic = 'force-dynamic';
+
 export default async function DashboardLayout({
   children,
 }: {
