@@ -22,7 +22,6 @@ export function getDb() {
       idleTimeoutMillis: 30_000,
       max: 5,
       keepAlive: true,
-      family: 4,
     });
 
     pool.on("error", (err) => {
