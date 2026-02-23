@@ -1,3 +1,12 @@
+---
+title: Phase 3 Chatbot Backend
+emoji: 🤖
+colorFrom: blue
+colorTo: purple
+sdk: docker
+pinned: false
+---
+
 # Phase 3 Backend - AI Chatbot API
 
 FastAPI backend with OpenAI Agents SDK integration for AI-powered task management chatbot.
